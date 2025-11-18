@@ -38,8 +38,11 @@ TEST(LexerTest, TokenizeOperators) {
  
   EXPECT_EQ(list_of_tokens.at(10).type, TokenType::BANG);
   EXPECT_EQ(list_of_tokens.at(10).literal, "!");
- 
-  ASSERT_EQ(list_of_tokens.size(), 11);
+
+  EXPECT_EQ(list_of_tokens.at(11).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(11).literal, "");
+
+  ASSERT_EQ(list_of_tokens.size(), 12);
 }
 
 TEST(LexerTest, TokenizeKeywords) {
@@ -78,36 +81,51 @@ TEST(LexerTest, TokenizeKeywords) {
   EXPECT_EQ(list_of_tokens.at(10).type, TokenType::FUNCTION);
   EXPECT_EQ(list_of_tokens.at(10).literal, "function");
 
-  ASSERT_EQ(list_of_tokens.size(), 11);
+  EXPECT_EQ(list_of_tokens.at(11).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(11).literal, "");
+
+  ASSERT_EQ(list_of_tokens.size(), 12);
 }
 
 TEST(LexerTest, TokenizeWhitespaceOnly) {
   Lexer lexer("   \n\r\t   ");
   auto list_of_tokens = lexer.Tokenize();
-  ASSERT_EQ(list_of_tokens.size(), 0);
+
+  EXPECT_EQ(list_of_tokens.at(0).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(0).literal, "");
+
+  ASSERT_EQ(list_of_tokens.size(), 1);
 }
 
 TEST(LexerTest, TokenizeIdentifiers) {
   Lexer lexer("hello world");
   auto list_of_tokens = lexer.Tokenize();
 
-  EXPECT_EQ(list_of_tokens[0].type, TokenType::IDENTIFIER);
-  EXPECT_EQ(list_of_tokens[0].literal, "hello");
+  EXPECT_EQ(list_of_tokens.at(0).type, TokenType::IDENTIFIER);
+  EXPECT_EQ(list_of_tokens.at(0).literal, "hello");
 
-  EXPECT_EQ(list_of_tokens[1].type, TokenType::IDENTIFIER);
-  EXPECT_EQ(list_of_tokens[1].literal, "world");
-  ASSERT_EQ(list_of_tokens.size(), 2);
+  EXPECT_EQ(list_of_tokens.at(1).type, TokenType::IDENTIFIER);
+  EXPECT_EQ(list_of_tokens.at(1).literal, "world");
+
+  EXPECT_EQ(list_of_tokens.at(2).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(2).literal, "");
+  ASSERT_EQ(list_of_tokens.size(), 3);
 }
 
 TEST(LexerTest, TokenizeNumbers) {
   Lexer lexer(" 100   84091.140  ");
   auto list_of_tokens = lexer.Tokenize();
 
-  EXPECT_EQ(list_of_tokens[0].type, TokenType::NUMBER);
-  EXPECT_EQ(list_of_tokens[0].literal, "100");
-  EXPECT_EQ(list_of_tokens[1].type, TokenType::NUMBER);
-  EXPECT_EQ(list_of_tokens[1].literal, "84091.140");
-  ASSERT_EQ(list_of_tokens.size(), 2);
+  EXPECT_EQ(list_of_tokens.at(0).type, TokenType::NUMBER);
+  EXPECT_EQ(list_of_tokens.at(0).literal, "100");
+
+  EXPECT_EQ(list_of_tokens.at(1).type, TokenType::NUMBER);
+  EXPECT_EQ(list_of_tokens.at(1).literal, "84091.140");
+
+  EXPECT_EQ(list_of_tokens.at(2).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(2).literal, "");
+
+  ASSERT_EQ(list_of_tokens.size(), 3);
 }
 
 TEST(LexerTest, TokenizeProgram) {
@@ -136,11 +154,15 @@ TEST(LexerTest, TokenizeProgram) {
 
   EXPECT_EQ(list_of_tokens.at(7).type, TokenType::RBRACE);
   EXPECT_EQ(list_of_tokens.at(7).literal, "}");
-  ASSERT_EQ(list_of_tokens.size(), 8);
+
+  EXPECT_EQ(list_of_tokens.at(8).type, TokenType::END_OF_FILE);
+  EXPECT_EQ(list_of_tokens.at(8).literal, "");
+
+  ASSERT_EQ(list_of_tokens.size(), 9);
 }
 
 int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
 

@@ -95,8 +95,10 @@ std::vector<Token> Lexer::Tokenize(){
       else if("return" == str) tokens.emplace_back(TokenType::RETURN, str);
       else if("true" == str) tokens.emplace_back(TokenType::TRUE, str);
       else if("false" == str) tokens.emplace_back(TokenType::FALSE, str);
+      else tokens.emplace_back(TokenType::IDENTIFIER, str);
     }
   }
+  tokens.emplace_back(TokenType::END_OF_FILE, "");
   return tokens;
 }
 char Lexer::peek(size_t step){

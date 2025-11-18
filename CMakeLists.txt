@@ -3,21 +3,33 @@ cmake_minimum_required(VERSION 3.10)
 project(
   olm 
   VERSION 1.0
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
 
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+endif()
 
-file(GLOB SRC_FILES src/*.cc)
 include_directories(include)
+set(SRC_FILES
+    src/lexer.cc
+)
 
+# ---------------- LIBRARY -------------------
+add_library(olm_lib STATIC ${SRC_FILES})
+target_include_directories(olm_lib PUBLIC include)
 
-add_library(olm_lib STATIC ${SRC_FILES}) 
-add_executable(${CMAKE_PROJECT_NAME} ${SRC_FILES})
+# ---------------- EXECUTABLE -------------------
+add_executable(${CMAKE_PROJECT_NAME} src/main.cc)
+target_link_libraries(${PROJECT_NAME}
+  PRIVATE olm_lib
+)
 
-### test
+# ---------------- TESTS -------------------
 include(FetchContent)
 
 FetchContent_Declare(
@@ -30,11 +42,12 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(
-  tests tests/lexer_test.cc
-)
-target_link_libraries(
-  tests 
+set(TEST_SRC tests/lexer_test.cc)
+
+add_executable(tests ${TEST_SRC})
+
+target_link_libraries(tests 
+PRIVATE
   olm_lib
   GTest::gtest_main
 )
