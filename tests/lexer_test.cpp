@@ -112,7 +112,7 @@ TEST(LexerTest, TokenizeProgram) {
   Lexer lexer(R"(
   clase Persona {
     # This is a comment.
-    # ( : IDENTIFIER ) colon + identifier are ignored just like python.
+    # colon + identifier( ':' IDENTIFIER ) are ignored just like python.
     fn new(name): Persona {
       _name = name
       ret self

@@ -1,0 +1,19 @@
+# This is a comment.
+# colon + identifier( ':' IDENTIFIER ) are ignored just like python.
+
+clase Persona {
+  fn new(name): Persona {
+    _name = name
+    ret self
+  }
+
+  fn get_name(): String {
+    ret _name
+  }
+
+  fn set_name(name): None {
+    _name = name
+  }
+
+  _name : String
+}
