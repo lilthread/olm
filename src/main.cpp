@@ -2,8 +2,10 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <print>
+#include "ast.h"
 #include "lexer.h"
+#include "memoryarena.h"
+#include "parser.h"
 
 std::string read_file(const std::string& filename) {
   std::ifstream file(filename);
@@ -21,12 +23,13 @@ int main(int argc, char** argv) {
     std::cerr << "Uso: " << argv[0] << " <archivo>\n";
     return EXIT_FAILURE;
   }
-  auto filename = argv[1];
-  auto source = read_file(filename);
-  auto tkns = std::move(Lexer(source).tokenize());
-  for (const auto& t : tkns){
-    std::println("TOKENLITERAL: {}", t.literal);
-  }
-  // TODO: ...
+  std::string filename = argv[1];
+  std::vector<Token> tkns = tokenize(read_file(filename));
+
+  MemoryArena arena{1024 * 4};
+  Parser parser(tkns, arena);
+  ArenaVec program = parser.parseProgram();
+  // TODO:
+
   return EXIT_SUCCESS;
 }

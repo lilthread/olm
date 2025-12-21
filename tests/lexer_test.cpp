@@ -3,8 +3,7 @@
 #include "lexer.h"
 
 TEST(LexerTest, TokenizeIdentifiers) {
-  Lexer lexer("hello world");
-  auto list_of_tokens = lexer.tokenize();
+  auto list_of_tokens = tokenize("hello world");
 
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::IDENTIFIER);
   EXPECT_EQ(list_of_tokens.at(0).literal, "hello");
@@ -18,8 +17,7 @@ TEST(LexerTest, TokenizeIdentifiers) {
 }
 
 TEST(LexerTest, TokenizeOperators) {
-  Lexer lexer("+ - * / < > = <= >= != ! == ");
-  auto list_of_tokens = lexer.tokenize();
+  auto list_of_tokens = tokenize("+ - * / < > = <= >= != ! == ");
   ASSERT_EQ(list_of_tokens.size(), 13);
 
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::PLUS);
@@ -64,19 +62,18 @@ TEST(LexerTest, TokenizeOperators) {
 
 
 TEST(LexerTest, TokenizeIgnore) {
-  Lexer lexer("   \n\r\t\n   \r\t\n\n   ");
-  auto list_of_tokens = lexer.tokenize();
+  auto list_of_tokens = tokenize("   \n\r\t\n   \r\t\n\n   ");
   ASSERT_EQ(list_of_tokens.size(), 1);
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::END_OF_FILE);
   EXPECT_EQ(list_of_tokens.at(0).literal, "");
 }
 
 TEST(LexerTest, TokenizeLiteralStr) {
-  Lexer lexer(R"(
+  std::string lil_str (R"(
     "this is a string literal "
     "lil bro, be bro."
   )");
-  auto list_of_tokens = lexer.tokenize();
+  auto list_of_tokens = tokenize(lil_str);
 
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::STRING);
   EXPECT_EQ(list_of_tokens.at(0).literal, "this is a string literal ");
@@ -92,9 +89,7 @@ TEST(LexerTest, TokenizeLiteralStr) {
 
 
 TEST(LexerTest, TokenizeNumbers) {
-  Lexer lexer("100   84091.140");
-  auto list_of_tokens = lexer.tokenize();
-
+  auto list_of_tokens = tokenize("100   84091.140");
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::INTEGER);
   EXPECT_EQ(list_of_tokens.at(0).literal, "100");
 
@@ -109,18 +104,18 @@ TEST(LexerTest, TokenizeNumbers) {
 
 
 TEST(LexerTest, TokenizeProgram) {
-  Lexer lexer(R"(
+  std::string program_str(R"(
   clase Persona {
     # This is a comment.
     # colon + identifier( ':' IDENTIFIER ) are ignored just like python.
-    fn new(name): Persona {
+    fn new(name) {
       _name = name
-      ret self
+      ret este 
     }
-    _name : String
+    _name
   }
   )");
-  auto list_of_tokens = lexer.tokenize();
+  auto list_of_tokens = tokenize(program_str);
  
   ASSERT_EQ(list_of_tokens.at(0).type, TokenType::CLASS) << "Expect keyword: " + list_of_tokens.at(0).literal;
   ASSERT_EQ(list_of_tokens.at(1).type, TokenType::IDENTIFIER) << "Expect identifier Persona: " + list_of_tokens.at(0).literal;
@@ -148,7 +143,7 @@ TEST(LexerTest, TokenizeProgram) {
 
   ASSERT_EQ(list_of_tokens.at(12).type, TokenType::RETURN) << "Expect keyword 'ret': " + list_of_tokens.at(12).literal;
 
-  ASSERT_EQ(list_of_tokens.at(13).type, TokenType::SELF) << "Expect keyword 'self':" + list_of_tokens.at(13).literal;
+  ASSERT_EQ(list_of_tokens.at(13).type, TokenType::SELF) << "Expect keyword 'este':" + list_of_tokens.at(13).literal;
 
 
   ASSERT_EQ(list_of_tokens.at(14).type, TokenType::RBRACE) << "Expect '}': " + list_of_tokens.at(14).literal;

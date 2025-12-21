@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(
   olm
   VERSION 1.0
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 add_library(olm_lib STATIC)
@@ -11,11 +11,17 @@ add_library(olm_lib STATIC)
 target_sources(olm_lib
   PRIVATE
     src/lexer.cpp
+    src/memoryarena.cpp
+    src/ast.cpp
+    src/parser.cpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS src
     FILES
       src/lexer.h
+      src/memoryarena.h
+      src/ast.h
+      src/parser.h
 )
 
 target_include_directories(olm_lib
@@ -55,15 +61,16 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(olm_tests
+add_executable(tests
   tests/lexer_test.cpp
+  tests/parser_test.cpp
 )
 
-target_link_libraries(olm_tests
+target_link_libraries(tests
   PRIVATE
     olm_lib
     GTest::gtest_main
 )
 
 include(GoogleTest)
-gtest_discover_tests(olm_tests)
+gtest_discover_tests(tests)

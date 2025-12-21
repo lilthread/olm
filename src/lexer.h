@@ -15,15 +15,4 @@ struct Token final{
   Token(TokenType type, std::string literal = ""): type(type), literal(std::move(literal)){}
 };
 
-class Lexer final {
-public:
-  Lexer(const std::string& source): _idx(0), _source(source){}
-  std::vector<Token> tokenize();
-
-private:
-  size_t _idx;
-  std::string _source;
-  bool atEnd();
-  char peek(size_t steps = 0);
-  char advance();
-};
+std::vector<Token> tokenize(const std::string& source);
