@@ -150,7 +150,8 @@ Assignment* Parser::parseAssignment(){
 
 // TODO: IF statement
 IfStatement* Parser::parseIf(){
-  parsePrimaryExpression();
+  auto* condition = parsePrimaryExpression();
+  ArenaVec body = parseBlock();
   exit(0);
 }
 

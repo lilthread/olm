@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <print>
 #include <sstream>
 #include "ast.h"
 #include "lexer.h"
@@ -26,9 +27,13 @@ int main(int argc, char** argv) {
   std::string filename = argv[1];
   std::vector<Token> tkns = tokenize(read_file(filename));
 
-  MemoryArena arena{1024 * 4};
-  Parser parser(tkns, arena);
-  ArenaVec program = parser.parseProgram();
+  for(auto t : tkns) {
+    std::println("token: {}, row: {}, col {}", t.literal, t.row, t.col);
+  }
+
+  //MemoryArena arena{1024 * 4};
+  //Parser parser(tkns, arena);
+  //ArenaVec program = parser.parseProgram();
   // TODO:
 
   return EXIT_SUCCESS;

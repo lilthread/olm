@@ -1,4 +1,7 @@
 #include "lexer.h"
+#include <cctype>
+#include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -22,12 +25,19 @@ const std::unordered_map<std::string_view, TokenType> keywords {
 class Lexer final {
 public:
   std::vector<Token> tokenize(const std::string& source);
+
 private:
   std::size_t _idx{};
+  std::size_t _row{0};
+  std::size_t _col{1};
   std::string _source;
+  std::vector<Token> tkns;
+
+
+  void addToken(TokenType type, const std::string& str);
 
   bool atEnd();
-  char peek(std::size_t steps = 0);
+  char peek(int steps = 0);
   char advance();
 };
 } // namespace
@@ -38,67 +48,86 @@ std::vector<Token> tokenize(const std::string& source){
 
 std::vector<Token> Lexer::tokenize(const std::string& source){
   _source = source;
-  std::vector<Token> tkns;
   while(!atEnd()){
     char chr = advance();
-    while(std::isspace(chr)) chr = advance();
+
+    while(std::isspace(chr)){
+      if(chr == '\n') {
+        _col++;
+        _row = 0;
+      }
+      chr = advance();
+    }
     switch (chr) {
-      case '(': tkns.emplace_back(TokenType::LPAREN, "("); break;
-      case ')': tkns.emplace_back(TokenType::RPAREN, ")"); break;
-      case '{': tkns.emplace_back(TokenType::LBRACE, "{"); break;
-      case '}': tkns.emplace_back(TokenType::RBRACE, "}"); break;
-      case ',': tkns.emplace_back(TokenType::COMMA, ",");  break;
-      case '+': tkns.emplace_back(TokenType::PLUS, "+");   break;
-      case '-': tkns.emplace_back(TokenType::MINUS, "-");  break;
-      case '*': tkns.emplace_back(TokenType::STAR, "*");   break;
-      case '/': tkns.emplace_back(TokenType::SLASH, "/");  break;
+      case '#':
+        while(peek() != '\n' && !atEnd())
+        advance();
+        break;
+      case '(': addToken(TokenType::LPAREN, "("); break;
+      case ')': addToken(TokenType::RPAREN, ")"); break;
+      case '{': addToken(TokenType::LBRACE, "{"); break;
+      case '}': addToken(TokenType::RBRACE, "}"); break;
+      case ',': addToken(TokenType::COMMA, ",");  break;
+      case '+': addToken(TokenType::PLUS, "+");   break;
+      case '-': addToken(TokenType::MINUS, "-");  break;
+      case '*': addToken(TokenType::STAR, "*");   break;
+      case '.': addToken(TokenType::DOT, ".");   break;
+      case '/': addToken(TokenType::SLASH, "/");  break;
       case ':':
         advance();
         while(std::isalnum(peek())) advance();
         break;
       case '=':
         if(peek() != '=')
-          tkns.emplace_back(TokenType::ASSIGN, "=");
+          addToken(TokenType::ASSIGN, "=");
         else{
-          tkns.emplace_back(TokenType::EQUAL, "==");
+          addToken(TokenType::EQUAL, "==");
           advance();
         }
         break;
       case '>':
         if(peek() != '=')
-          tkns.emplace_back(TokenType::GREATER_THAN, ">");
+          addToken(TokenType::GREATER_THAN, ">");
         else{
-          tkns.emplace_back(TokenType::GREATER_OR_EQUAL, ">=");
+          addToken(TokenType::GREATER_OR_EQUAL, ">=");
           advance();
         }
         break;
       case '<':
         if(peek() != '=')
-          tkns.emplace_back(TokenType::LESSER_THAN, "<");
+          addToken(TokenType::LESSER_THAN, "<");
         else{
-          tkns.emplace_back(TokenType::LESSER_OR_EQUAL, "<=");
+          addToken(TokenType::LESSER_OR_EQUAL, "<=");
           advance();
         }
-        break;
-      case '#':
-        while(peek() != '\n' && !atEnd()) advance();
         break;
       case '!':
         if(peek() == '='){
-          tkns.emplace_back(TokenType::NOT_EQUAL, "!=");
+          addToken(TokenType::NOT_EQUAL, "!=");
           advance();
         }else{
-          tkns.emplace_back(TokenType::BANG, "!");
+          addToken(TokenType::BANG, "!");
         }
         break;
-      /* TODO: CHECK FOR UNTERMINATED STRING LITERAL */
       case '\'':
-      case '\"':
-        advance();
-        std::size_t start = _idx - 1;
-        while(peek() != chr) advance();
-        tkns.emplace_back(TokenType::STRING, _source.substr(start, _idx - start));
+      case '\"':{
         advance(); // " or '
+        std::size_t start = _idx - 1;
+        while(peek() != chr) {
+          if(peek(-1) == '\0') throw std::runtime_error("unterminated string literal");
+          advance();
+        }
+        addToken(TokenType::STRING, _source.substr(start, _idx - start));
+        advance(); // " or '
+        break;
+      }
+      case '$':
+        advance();
+        while (peek() != '$'){
+          if (atEnd()) throw std::runtime_error("Unterminated block comment");
+          advance();
+        }
+        advance(); // Skip '$'
         break;
     }
     if(std::isdigit(chr)){
@@ -111,7 +140,7 @@ std::vector<Token> Lexer::tokenize(const std::string& source){
         while(std::isdigit(peek())) advance();
         number_type = TokenType::FLOAT;
       }
-      tkns.emplace_back(number_type, _source.substr(start, _idx - start));
+      addToken(number_type, _source.substr(start, _idx - start));
     }
     if(std::isalpha(chr) || chr == '_'){
       std::size_t start = _idx - 1;
@@ -119,13 +148,12 @@ std::vector<Token> Lexer::tokenize(const std::string& source){
       std::string_view str{_source.data() + start, _idx - start };
 
       if (auto it = keywords.find(str); it != keywords.end()) 
-        tkns.emplace_back(it->second, std::string(str));
+        addToken(it->second, std::string(str));
       else
-        tkns.emplace_back(TokenType::IDENTIFIER, std::string(str));
+        addToken(TokenType::IDENTIFIER, std::string(str));
     }
-    //tkns.emplace_back(TokenType::ILEGAL, std::to_string(chr));
   }
-  tkns.emplace_back(TokenType::END_OF_FILE, "");
+  addToken(TokenType::END_OF_FILE, "");
   return tkns;
 }
 
@@ -139,12 +167,16 @@ char Lexer::advance(){
 
   auto chr = peek();
   _idx++;
+  _row++;
   return chr;
 }
 
-char Lexer::peek(std::size_t steps){
+char Lexer::peek(int steps){
   if(_idx + steps > _source.size())
     return '\0';
   return _source[_idx + steps];
 }
 
+void Lexer::addToken(TokenType type, const std::string& str){
+  tkns.emplace_back(type, str, _row - str.size(), _col);
+}

@@ -134,4 +134,3 @@ TEST(ParserTest, ParseClass) {
   ArenaVec function_statements_body = method_declaration->body;
   EXPECT_EQ(function_statements_body.size(), 0);
 }
-

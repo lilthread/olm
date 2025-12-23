@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <vector>
 #include "lexer.h"
 
@@ -70,6 +71,9 @@ TEST(LexerTest, TokenizeIgnore) {
 
 TEST(LexerTest, TokenizeLiteralStr) {
   std::string lil_str (R"(
+    $
+      THIS IS A LONG COMMENT
+    $
     "this is a string literal "
     "lil bro, be bro."
   )");
@@ -86,6 +90,13 @@ TEST(LexerTest, TokenizeLiteralStr) {
   EXPECT_EQ(list_of_tokens.at(2).literal, "");
   ASSERT_EQ(list_of_tokens.size(), 3);
 }
+TEST(LexerTest, UnterminatedString) {
+  std::string lil_str (R"(
+    " I forgor 💀
+  )");
+  ASSERT_THROW(tokenize(lil_str), std::runtime_error);
+}
+
 
 
 TEST(LexerTest, TokenizeNumbers) {
@@ -158,7 +169,6 @@ TEST(LexerTest, TokenizeProgram) {
   ASSERT_EQ(list_of_tokens.at(17).type, TokenType::END_OF_FILE);
   ASSERT_EQ(list_of_tokens.at(17).literal, "");
 }
-
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
