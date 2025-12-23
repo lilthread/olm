@@ -6,15 +6,15 @@
 
 TEST(ParserTest, ParseExpr) {
   std::string str (R"(
-    var arithmetic = 10 + 2 * 3
-    arithmetic = 0
+    var arithmetic se 10 + 2 * 3
+    arithmetic se 0
   )");
   auto tokens = tokenize(str);
   MemoryArena arena{1024 * 4};
   Parser parser(tokens, arena);
 
-  auto program = parser.parseProgram();
-  ASSERT_EQ(program.size(), 2);
+  StmtSlice program = parser.parseProgram();
+  ASSERT_EQ(program.size, 2);
 
   auto* var = static_cast<VariableDecl*>(program.at(0));
   EXPECT_EQ(var->id, "arithmetic");
@@ -51,9 +51,9 @@ TEST(ParserTest, ParseExpr) {
 TEST(ParserTest, ParseVariableDeclarationLiteral) {
   std::string str (R"(
 
-    var mi_numero = 10
-    constante PI = 3.14
-    var mi_string = "hello there"
+    var mi_numero se 10
+    constante PI se 3.14
+    var mi_string se "hello there"
 
   )");
   auto tokens = tokenize(str);
@@ -93,9 +93,9 @@ TEST(ParserTest, ParseVariableDeclarationLiteral) {
 
 TEST(ParserTest, ParseFunction) {
   std::string str (R"(
-
-    fn el_mas_grande(a,b,c): Numero {}
-
+    func sum(a: Numero, b :Numero): Numero haz
+      ret a + b
+    fin
   )");
   auto tokens = tokenize(str);
   MemoryArena arena{1024 * 4};
@@ -103,18 +103,32 @@ TEST(ParserTest, ParseFunction) {
   auto program = parser.parseProgram();
   ASSERT_EQ(program.at(0)->kind, ASTKind::FunctionDecl) << "First element is not a function";
   auto* function_decl = static_cast<FunctionDecl*>(program.at(0));
-  ASSERT_EQ(function_decl->id, "el_mas_grande");
-  ASSERT_EQ(function_decl->params.size(), 3);
-  ArenaVec function_statements_body = function_decl->body;
+  ASSERT_EQ(function_decl->id, "sum") << "function declaration name isn't the same: " << function_decl->id;
+  StmtSlice function_statements_body = function_decl->body;
+
+  ASSERT_EQ(function_decl->body.at(0)->kind, ASTKind::Return) << "It's not a return stmt";
+  auto* return_stmt = static_cast<ReturnStatement*>(function_decl->body.at(0));
+
+  EXPECT_EQ(return_stmt->expr->kind, ASTKind::BinaryOp) << "Not a binary expr";
+
+  auto* binary_expr = static_cast<BinaryOp*>(return_stmt->expr);
+
+  EXPECT_EQ(binary_expr->left->kind, ASTKind::Literal) << "Not a literal";
+  auto* left = static_cast<Literal*>(binary_expr->left);
+  EXPECT_EQ(left->token.literal, "a");
+
+  EXPECT_EQ(binary_expr->op, "+");
+
+  EXPECT_EQ(binary_expr->right->kind, ASTKind::Literal)<< "Not a literal";
+  auto* right = static_cast<Literal*>(binary_expr->right);
+  EXPECT_EQ(right->token.literal, "b");
 }
 
 TEST(ParserTest, ParseClass) {
   std::string str (R"(
-
-    clase Skibidi {
-      fn toilet(): Void {}
-    }
-
+    clase Skibidi haz
+      func toilet(): Vacio haz fin
+    fin
   )");
   auto tokens = tokenize(str);
   MemoryArena arena{1024 * 4};
@@ -124,13 +138,63 @@ TEST(ParserTest, ParseClass) {
   ASSERT_EQ(program.at(0)->kind, ASTKind::ClassDecl) << "First element is not a class";
   auto* class_declaration = static_cast<ClassDecl*>(program.at(0));
   EXPECT_EQ(class_declaration->id, "Skibidi");
-  EXPECT_EQ(class_declaration->members.size(), 1);
+  EXPECT_EQ(class_declaration->members.size, 1);
 
   EXPECT_EQ(class_declaration->members.at(0)->kind, ASTKind::FunctionDecl) << "first member isn't a method class: " + class_declaration->id;
   auto* method_declaration = static_cast<FunctionDecl*>(class_declaration->members.at(0));
   EXPECT_EQ(method_declaration->id, "toilet");
-  EXPECT_EQ(method_declaration->params.size(), 0);
+  EXPECT_EQ(method_declaration->params.size, 0);
 
-  ArenaVec function_statements_body = method_declaration->body;
-  EXPECT_EQ(function_statements_body.size(), 0);
+  StmtSlice function_statements_body = method_declaration->body;
+  EXPECT_EQ(function_statements_body.size, 0);
+}
+
+TEST(ParserTest, ParseWhile) {
+  std::string str (R"(
+    var i se 0
+    mientras i < 5 haz
+      i se i + 1
+    fin
+  )");
+  auto tokens = tokenize(str);
+  MemoryArena arena{1024 * 4};
+  Parser parser(tokens, arena);
+  auto program = parser.parseProgram();
+
+  ASSERT_EQ(program.size, 2);
+  EXPECT_EQ(program.at(0)->kind, ASTKind::VariableDecl);
+  EXPECT_EQ(program.at(1)->kind, ASTKind::While);
+  auto* while_stmt = static_cast<WhileStatement*>(program.at(1));
+  EXPECT_EQ(while_stmt->condition->kind, ASTKind::BinaryOp) << "Not a BinaryOp";
+  EXPECT_EQ(while_stmt->body.size, 1);
+  auto* assignment = static_cast<Assignment*>(while_stmt->body.at(0));
+  EXPECT_EQ(assignment->id, "i");
+  EXPECT_EQ(assignment->expr->kind, ASTKind::BinaryOp) << "Not a BinaryOp";
+
+}
+
+TEST(ParserTest, ParserIf) {
+  std::string str (R"(
+    si x > 5 haz
+      ret "mayor a 5"
+    fin sino si x < 5 haz
+      ret "menor a 5"
+    fin sino haz
+      ret "es 5"
+    fin
+  )");
+  auto tokens = tokenize(str);
+  MemoryArena arena{1024 * 4};
+  Parser parser(tokens, arena);
+  auto program = parser.parseProgram();
+  ASSERT_EQ(program.size, 1);
+  EXPECT_EQ(program.at(0)->kind, ASTKind::If)<< "Not a if statement";
+  auto* if_statement = static_cast<IfStatement*>(program.at(0));
+  EXPECT_EQ(if_statement->condition->kind, ASTKind::BinaryOp) << "Wrong condition";
+  EXPECT_EQ(if_statement->next, IfStatement::next::If) << "next branch is not else if";
+
+  auto* elif_statement = static_cast<IfStatement*>(if_statement->else_if);
+  EXPECT_EQ(elif_statement->next, IfStatement::next::Else) << "next branch is not else";
+
+  StmtSlice else_statement = elif_statement->else_block;
 }

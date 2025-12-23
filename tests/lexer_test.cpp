@@ -18,7 +18,7 @@ TEST(LexerTest, TokenizeIdentifiers) {
 }
 
 TEST(LexerTest, TokenizeOperators) {
-  auto list_of_tokens = tokenize("+ - * / < > = <= >= != ! == ");
+  auto list_of_tokens = tokenize("+ - * / < > se <= >= != ! = ");
   ASSERT_EQ(list_of_tokens.size(), 13);
 
   EXPECT_EQ(list_of_tokens.at(0).type, TokenType::PLUS);
@@ -40,7 +40,7 @@ TEST(LexerTest, TokenizeOperators) {
   EXPECT_EQ(list_of_tokens.at(5).literal, ">");
 
   EXPECT_EQ(list_of_tokens.at(6).type, TokenType::ASSIGN);
-  EXPECT_EQ(list_of_tokens.at(6).literal, "=");
+  EXPECT_EQ(list_of_tokens.at(6).literal, "se");
 
   EXPECT_EQ(list_of_tokens.at(7).type, TokenType::LESSER_OR_EQUAL);
   EXPECT_EQ(list_of_tokens.at(7).literal, "<=");
@@ -55,7 +55,7 @@ TEST(LexerTest, TokenizeOperators) {
   EXPECT_EQ(list_of_tokens.at(10).literal, "!");
 
   EXPECT_EQ(list_of_tokens.at(11).type, TokenType::EQUAL);
-  EXPECT_EQ(list_of_tokens.at(11).literal, "==");
+  EXPECT_EQ(list_of_tokens.at(11).literal, "=");
 
   EXPECT_EQ(list_of_tokens.at(12).type, TokenType::END_OF_FILE);
   EXPECT_EQ(list_of_tokens.at(12).literal, "");
@@ -116,24 +116,23 @@ TEST(LexerTest, TokenizeNumbers) {
 
 TEST(LexerTest, TokenizeProgram) {
   std::string program_str(R"(
-  clase Persona {
-    # This is a comment.
+  clase Persona haz
     # colon + identifier( ':' IDENTIFIER ) are ignored just like python.
-    fn new(name) {
-      _name = name
+    func new(name) haz
+      _name se name
       ret este 
-    }
+    fin
     _name
-  }
+  fin
   )");
   auto list_of_tokens = tokenize(program_str);
  
   ASSERT_EQ(list_of_tokens.at(0).type, TokenType::CLASS) << "Expect keyword: " + list_of_tokens.at(0).literal;
   ASSERT_EQ(list_of_tokens.at(1).type, TokenType::IDENTIFIER) << "Expect identifier Persona: " + list_of_tokens.at(0).literal;
 
-  ASSERT_EQ(list_of_tokens.at(2).type, TokenType::LBRACE) << "Expect '{' : " + list_of_tokens.at(2).literal;
+  ASSERT_EQ(list_of_tokens.at(2).type, TokenType::LBRACE) << "Expect 'haz' : " + list_of_tokens.at(2).literal;
 
-  ASSERT_EQ(list_of_tokens.at(3).type, TokenType::FUNCTION) << "Expect keyword 'fn': " + list_of_tokens.at(3).literal;
+  ASSERT_EQ(list_of_tokens.at(3).type, TokenType::FUNCTION) << "Expect keyword 'func': " + list_of_tokens.at(3).literal;
 
   ASSERT_EQ(list_of_tokens.at(4).type, TokenType::IDENTIFIER) << "Expect identifier 'kew': " + list_of_tokens.at(4).literal;
 
@@ -144,7 +143,7 @@ TEST(LexerTest, TokenizeProgram) {
 
   ASSERT_EQ(list_of_tokens.at(7).type, TokenType::RPAREN) << "Expect ')': " + list_of_tokens.at(7).literal;
 
-  ASSERT_EQ(list_of_tokens.at(8).type, TokenType::LBRACE) << "Expect '{' : " + list_of_tokens.at(8).literal;
+  ASSERT_EQ(list_of_tokens.at(8).type, TokenType::LBRACE) << "Expect 'haz' : " + list_of_tokens.at(8).literal;
 
   ASSERT_EQ(list_of_tokens.at(9).type, TokenType::IDENTIFIER) << "Expect identifier '_name': " + list_of_tokens.at(9).literal;
 
@@ -157,13 +156,13 @@ TEST(LexerTest, TokenizeProgram) {
   ASSERT_EQ(list_of_tokens.at(13).type, TokenType::SELF) << "Expect keyword 'este':" + list_of_tokens.at(13).literal;
 
 
-  ASSERT_EQ(list_of_tokens.at(14).type, TokenType::RBRACE) << "Expect '}': " + list_of_tokens.at(14).literal;
+  ASSERT_EQ(list_of_tokens.at(14).type, TokenType::RBRACE) << "Expect 'fin': " + list_of_tokens.at(14).literal;
 
   ASSERT_EQ(list_of_tokens.at(15).type, TokenType::IDENTIFIER);
   ASSERT_EQ(list_of_tokens.at(15).literal, "_name");
 
   ASSERT_EQ(list_of_tokens.at(16).type, TokenType::RBRACE);
-  ASSERT_EQ(list_of_tokens.at(16).literal, "}");
+  ASSERT_EQ(list_of_tokens.at(16).literal, "fin");
 
 
   ASSERT_EQ(list_of_tokens.at(17).type, TokenType::END_OF_FILE);

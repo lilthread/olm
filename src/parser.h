@@ -6,19 +6,19 @@
 #include "ast.h"
 
 
+// TODO: PARSE && || STMT
 class Parser final {
 public:
-  ArenaVec parseProgram();
+  StmtSlice parseProgram();
 
   Parser(const std::vector<Token>& tokens, MemoryArena& arena):
   _tkns(tokens), _idx(0), _arena(arena){}
 
 private:
-  std::vector<Token> _tkns;
+  const std::vector<Token>& _tkns;
   std::size_t _idx;
+  std::vector<ASTNode*>_ast;
   MemoryArena& _arena;
-  std::vector<ASTNode*, ArenaAllocator<ASTNode*>> _ast {ArenaAllocator<ASTNode*>(_arena)};
-
 
   const Token& peek(int steps = 0) const;
   const Token& advance();
@@ -28,7 +28,7 @@ private:
 
   ASTNode* parseExpression();
   ASTNode* parseAdditiveExpression();
-  ASTNode* parseMultDivExpr();
+  ASTNode* parseTerm();
   ASTNode* parseUnaryExpression();
   ASTNode* parsePrimaryExpression();
 
@@ -37,11 +37,13 @@ private:
   VariableDecl* parseVar();
   FunctionDecl* parseFunction();
   ClassDecl* parseClass();
+
+  ReturnStatement* parseReturn();
   IfStatement* parseIf();
   WhileStatement* parseWhile();
   ASTNode* parseClassMember();
 
-  ArenaVec parseBlock();
+  StmtSlice parseBlock();
   ASTNode* parseStatement();
   Assignment* parseAssignment();
 };

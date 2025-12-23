@@ -3,13 +3,16 @@
 #include "lexer.h"
 #include "memoryarena.h"
 #include <stdexcept>
+#include <string>
 #include <vector>
 
-ArenaVec Parser::parseProgram() {
+StmtSlice Parser::parseProgram() {
+  _ast.reserve(_tkns.size() / 2);
+  _ast.clear();
   while (peek().type != TokenType::END_OF_FILE) {
-    _ast.emplace_back(parseDeclaration());
+    _ast.push_back(parseDeclaration());
   }
-  return _ast;
+  return makeSlice(_arena, _ast);
 }
 
 ASTNode* Parser::parseExpression() {
@@ -17,22 +20,29 @@ ASTNode* Parser::parseExpression() {
 }
 
 ASTNode* Parser::parseAdditiveExpression() {
-  ASTNode* left = parseMultDivExpr();
+  ASTNode* left = parseTerm();
 
   while (peek().type == TokenType::PLUS or
          peek().type == TokenType::MINUS)
   {
     Token op = advance();
-    ASTNode* right = parseMultDivExpr();
+    ASTNode* right = parseTerm();
     left = _arena.allocate<BinaryOp>(left, right, op.literal);
   }
 
   return left;
 }
-ASTNode* Parser::parseMultDivExpr(){
+ASTNode* Parser::parseTerm(){
   ASTNode* left = parseUnaryExpression();
   while (peek().type == TokenType::STAR or
-         peek().type == TokenType::SLASH)
+         peek().type == TokenType::SLASH or
+         peek().type == TokenType::GREATER_THAN or
+         peek().type == TokenType::GREATER_OR_EQUAL or
+         peek().type == TokenType::LESSER_THAN or
+         peek().type == TokenType::LESSER_OR_EQUAL or
+         peek().type == TokenType::EQUAL or
+         peek().type == TokenType::NOT_EQUAL
+  )
   {
     Token op = advance();
     ASTNode* right = parseUnaryExpression();
@@ -51,7 +61,11 @@ ASTNode* Parser::parseUnaryExpression() {
 }
 
 ASTNode* Parser::parsePrimaryExpression() {
-  if (auto tkn = peek(); match(TokenType::INTEGER) or match(TokenType::FLOAT) or match(TokenType::STRING))
+  if (auto tkn = peek();
+    match(TokenType::INTEGER) or
+    match(TokenType::FLOAT) or
+    match(TokenType::STRING) or
+    match(TokenType::IDENTIFIER))
     return _arena.allocate<Literal>(tkn);
   else if (match(TokenType::LPAREN)) {
     ASTNode* expr = parseExpression();
@@ -68,6 +82,10 @@ ASTNode* Parser::parseDeclaration() {
     return parseFunction();
   else if (match(TokenType::CLASS))
     return parseClass();
+  else if(match(TokenType::IF))
+    return parseIf();
+  else if(match(TokenType::WHILE))
+    return parseWhile();
   else if (peek().type == TokenType::IDENTIFIER and peek(1).type == TokenType::ASSIGN)
     return parseAssignment();
   throw std::runtime_error("Expected declaration: " + peek().literal);
@@ -85,13 +103,14 @@ ClassDecl* Parser::parseClass() {
   const std::string& name = expect(TokenType::IDENTIFIER, "Expected class name").literal;
   expect(TokenType::LBRACE, "Expected '{' after class name");
 
-  ArenaVec members{ArenaAllocator<ASTNode*>{_arena}};
+  std::vector<ASTNode*> members;
   while (peek().type != TokenType::RBRACE) {
     members.push_back(parseClassMember());
   }
   expect(TokenType::RBRACE, "Expected '}' after class");
 
-  return _arena.allocate<ClassDecl>(name, members);
+  StmtSlice memberSlice = makeSlice(_arena, members);
+  return _arena.allocate<ClassDecl>(name, memberSlice);
 }
 
 ASTNode* Parser::parseClassMember() {
@@ -105,7 +124,7 @@ FunctionDecl* Parser::parseFunction() {
   const std::string& name = expect(TokenType::IDENTIFIER, "Expected function name").literal;
   expect(TokenType::LPAREN, "Expected '('");
 
-  Params params{ArenaAllocator<std::string>{_arena}};
+  std::vector<std::string> params;
   if(peek().type != TokenType::RPAREN){
     do {
       params.emplace_back(expect(TokenType::IDENTIFIER, "Expected parameter").literal); 
@@ -113,30 +132,27 @@ FunctionDecl* Parser::parseFunction() {
   }
   expect(TokenType::RPAREN, "Expected ')'");
 
-  ArenaVec body = parseBlock();
-  return _arena.allocate<FunctionDecl>(name, params, body);
+  ParamSlice paramSlice = makeSlice(_arena, params);
+  StmtSlice body = parseBlock();
+  return _arena.allocate<FunctionDecl>(name, paramSlice, body);
 }
 
-ArenaVec Parser::parseBlock() {
+
+StmtSlice Parser::parseBlock() {
   expect(TokenType::LBRACE, "Expected '{'");
-  ArenaVec body{ArenaAllocator<ASTNode*>{_arena}};
+  std::vector<ASTNode*> body;
 
   while (!match(TokenType::RBRACE)) {
     body.push_back(parseStatement());
   }
-  return body;
+  return makeSlice(_arena, body);
 }
 
 ASTNode* Parser::parseStatement() {
-  if (peek().type == TokenType::IDENTIFIER and peek(1).type == TokenType::ASSIGN) {
+  if (peek().type == TokenType::IDENTIFIER and peek(1).type == TokenType::ASSIGN)
     return parseAssignment();
-  }else if(match(TokenType::IF))
-    return parseIf();
-  else if (match(TokenType::RETURN)) {
-    const auto& value = expect(TokenType::IDENTIFIER, "Expected return value");
-    // TODO: return  _arena.allocate<ReturnStatement>();
-  }
-
+  else if (match(TokenType::RETURN))
+    return  parseReturn();
 
   throw std::runtime_error("Unknown statement");
 }
@@ -148,11 +164,32 @@ Assignment* Parser::parseAssignment(){
   return  _arena.allocate<Assignment>(id, expr);
 }
 
-// TODO: IF statement
 IfStatement* Parser::parseIf(){
-  auto* condition = parsePrimaryExpression();
-  ArenaVec body = parseBlock();
-  exit(0);
+  ASTNode* condition = parseExpression();
+
+  StmtSlice then_body = parseBlock();
+  auto* stmt = _arena.allocate<IfStatement>(condition, then_body);
+
+  if (match(TokenType::ELSE)) {
+    if(match(TokenType::IF)){
+      stmt->next = IfStatement::next::If;
+      stmt->else_if = parseIf();
+    } else {
+      stmt->next = IfStatement::next::Else;
+      stmt->else_block = parseBlock();
+    }
+  }
+  return stmt;
+}
+
+ReturnStatement* Parser::parseReturn() {
+  auto* expr = parseExpression(); return _arena.allocate<ReturnStatement>(expr);
+}
+
+WhileStatement* Parser::parseWhile(){
+  auto* expr = parseExpression();
+  auto body = parseBlock();
+  return _arena.allocate<WhileStatement>(expr, body);
 }
 
 const Token& Parser::peek(int steps) const {

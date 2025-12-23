@@ -7,12 +7,15 @@
 
 namespace {
 const std::unordered_map<std::string_view, TokenType> keywords {
+  {"se",  TokenType::ASSIGN},
   {"mientras",  TokenType::WHILE},
   {"si",        TokenType::IF},
   {"sino",      TokenType::ELSE},
   {"var",       TokenType::VAR},
   {"constante", TokenType::CONST},
-  {"fn",        TokenType::FUNCTION},
+  {"func",        TokenType::FUNCTION},
+  {"fin",        TokenType::RBRACE},
+  {"haz",        TokenType::LBRACE},
   {"ret",       TokenType::RETURN},
   {"verdadero", TokenType::BOOL},
   {"falso",     TokenType::BOOL},
@@ -73,17 +76,10 @@ std::vector<Token> Lexer::tokenize(const std::string& source){
       case '*': addToken(TokenType::STAR, "*");   break;
       case '.': addToken(TokenType::DOT, ".");   break;
       case '/': addToken(TokenType::SLASH, "/");  break;
+      case '=': addToken(TokenType::EQUAL, "="); break;
       case ':':
         advance();
         while(std::isalnum(peek())) advance();
-        break;
-      case '=':
-        if(peek() != '=')
-          addToken(TokenType::ASSIGN, "=");
-        else{
-          addToken(TokenType::EQUAL, "==");
-          advance();
-        }
         break;
       case '>':
         if(peek() != '=')

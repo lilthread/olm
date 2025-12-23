@@ -1,19 +1,20 @@
 # This is a comment.
 # colon + identifier( ':' IDENTIFIER ) are ignored just like python.
 
-clase Persona {
-  fn new(name): Persona {
+clase Persona haz
+  func constructor(name): Persona haz
     _name = name
     ret self
-  }
+  fin
 
-  fn get_name(): String {
+  func devuelve_nombre(): Caracteres haz
     ret _name
-  }
+  fin
 
-  fn set_name(name): None {
+  func cambia_nombre(name): Vacio haz
     _name = name
-  }
+  fin
 
-  _name : String
-}
+  _name : Caracteres
+fin
+

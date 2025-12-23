@@ -3,6 +3,7 @@
 #include <fstream>
 #include <print>
 #include <sstream>
+#include <stdexcept>
 #include "ast.h"
 #include "lexer.h"
 #include "memoryarena.h"
@@ -25,13 +26,18 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
   std::string filename = argv[1];
-  std::vector<Token> tkns = tokenize(read_file(filename));
+
+  std::vector<Token> tkns;
+  try{
+    tkns = tokenize(read_file(filename));
+  }catch(std::runtime_error& e){
+    std::cerr << e.what() << std::endl;
+  }
 
   for(auto t : tkns) {
     std::println("token: {}, row: {}, col {}", t.literal, t.row, t.col);
   }
-
-  //MemoryArena arena{1024 * 4};
+  MemoryArena arena{tkns.size() * 128};
   //Parser parser(tkns, arena);
   //ArenaVec program = parser.parseProgram();
   // TODO:

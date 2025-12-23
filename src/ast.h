@@ -12,10 +12,10 @@ enum class ASTKind {
   ClassDecl,
   FunctionDecl,
   VariableDecl,
-  IfStatement,
+  If,
+  While,
   Assignment,
   Return,
-  Identifier,
   UnaryOp,
   BinaryOp,
   Literal,
@@ -28,25 +28,28 @@ struct ASTNode {
   explicit ASTNode(ASTKind kind) : kind(kind) {}
 };
 
-using ArenaVec = std::vector<ASTNode*, ArenaAllocator<ASTNode*>>;
-using Params = std::vector<std::string, ArenaAllocator<std::string>>;
+//using ArenaVec = std::vector<ASTNode*, ArenaAllocator<ASTNode*>>;
+//using Params = std::vector<std::string, ArenaAllocator<std::string>>;
+
+using StmtSlice   = Slice<ASTNode*>;
+using ParamSlice  = Slice<std::string>;
 
 
 struct ClassDecl : ASTNode {
   std::string id;
-  ArenaVec members;
+  StmtSlice members;
 
-  ClassDecl(const std::string& id, ArenaVec& members)
-  : ASTNode(ASTKind::ClassDecl), id(id), members(members){}
+  ClassDecl(std::string id, StmtSlice members)
+  : ASTNode(ASTKind::ClassDecl), id(std::move(id)), members(members){}
 };
 
 struct FunctionDecl : ASTNode {
   std::string id;
-  Params params;
-  ArenaVec body;
+  ParamSlice params;
+  StmtSlice body;
 
-  FunctionDecl(const std::string& id, Params& params, ArenaVec& body)
-  : ASTNode(ASTKind::FunctionDecl), id(id), params(params), body(body){}
+  FunctionDecl(std::string id, ParamSlice params, StmtSlice body)
+  : ASTNode(ASTKind::FunctionDecl), id(std::move(id)), params(params), body(body){}
 };
 
 
@@ -89,16 +92,27 @@ struct BinaryOp : ASTNode {
   : ASTNode(ASTKind::BinaryOp), left(left), right(right), op(std::move(op)) {}
 };
 
-// TODO:
-
 struct IfStatement : ASTNode {
+  ASTNode* condition;
+  StmtSlice then_body;
+  enum class next { None, If, Else} next;
+  union {
+    IfStatement* else_if;
+    StmtSlice else_block;
+  };
 
+  IfStatement(ASTNode* condition, StmtSlice then_body)
+  : ASTNode(ASTKind::If), condition(condition), then_body(then_body), next(next::None) {}
 };
-
 struct WhileStatement : ASTNode {
-
+  ASTNode* condition;
+  StmtSlice body;
+  WhileStatement(ASTNode* condition, StmtSlice body)
+  : ASTNode(ASTKind::While), condition(condition), body(body){}
 };
 
-struct ReturnStmt : ASTNode {
+struct ReturnStatement : ASTNode {
+  ASTNode* expr;
+  ReturnStatement(ASTNode* expr): ASTNode(ASTKind::Return), expr(expr){}
 };
 

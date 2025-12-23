@@ -1,4 +1,6 @@
 #pragma once
+#include <cstring>
+#include <vector>
 #include <cstddef>
 #include <cstdlib>
 #include <new>
@@ -15,52 +17,55 @@ public:
     ::operator delete(_buff);
   }
 
-  template<typename T>
-  T* allocate_array(size_t count) {
-    return static_cast<T*>(allocate_raw(sizeof(T) * count, alignof(T)));
+  void* allocate_bytes(size_t bytes, size_t alignment) {
+    size_t current = reinterpret_cast<size_t>(_buff + _offset);
+    size_t aligned = (current + alignment - 1) & ~(alignment - 1);
+    size_t newOffset = aligned - reinterpret_cast<size_t>(_buff) + bytes;
+
+    if (newOffset > _capacity)
+      throw std::bad_alloc();
+
+    _offset = newOffset;
+    return reinterpret_cast<void*>(aligned);
   }
 
   template<typename T, typename... Args>
   T* allocate(Args&&... args) {
-    void* ptr = allocate_raw(sizeof(T), alignof(T));
-    return ::new (ptr) T(std::forward<Args>(args)...);
+    void* mem = allocate_bytes(sizeof(T), alignof(T));
+    return ::new (mem) T(std::forward<Args>(args)...);
   }
-
 private:
   char* _buff;
   size_t _capacity;
   size_t _offset;
-
-  void* allocate_raw(size_t size, size_t alignment) {
-    size_t space = _capacity - _offset;
-    void* ptr = _buff + _offset;
-    if (!std::align(alignment, size, ptr, space))
-      throw std::bad_alloc{};
-    _offset = static_cast<char*>(ptr) - _buff + size;
-    return ptr;
-  }
 };
-
-// https://learn.microsoft.com/en-us/cpp/standard-library/allocators?view=msvc-170
 
 template<typename T>
-class ArenaAllocator {
-public:
-  explicit ArenaAllocator(MemoryArena& arena) noexcept
-  : _arena(&arena) {}
+struct Slice {
+  T* data = nullptr;
+  uint32_t size = 0;
 
-  template<typename U> ArenaAllocator(const ArenaAllocator<U>& other) noexcept
-  : _arena(other.arena_) {}
-
-  T* allocate(std::size_t n) {
-    return _arena->allocate_array<T>(n);
+  T& at(uint32_t i) const {
+    return data[i];
   }
 
-  template<class U> bool operator==(const ArenaAllocator<U>& other) const noexcept;
-  template<typename U> bool operator!=(const ArenaAllocator<U>& other) const noexcept;
+  T* begin() const { return data; }
+  T* end()   const { return data + size; }
 
-  void deallocate(T*, std::size_t) noexcept { } 
-  using value_type = T;
-private:
-  MemoryArena* _arena;
+  bool empty() const { return size == 0; }
 };
+template<typename T>
+Slice<T> makeSlice(MemoryArena& arena, const std::vector<T>& vec) {
+  if (vec.empty())
+    return { nullptr, 0 };
+
+  T* data = static_cast<T*>(
+    arena.allocate_bytes(sizeof(T) * vec.size(), alignof(T))
+  );
+
+  for (size_t i = 0; i < vec.size(); ++i) {
+    ::new (&data[i]) T(vec[i]); // copy-construct
+  }
+
+  return { data, vec.size() };
+}
