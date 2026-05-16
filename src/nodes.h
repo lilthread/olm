@@ -4,17 +4,19 @@
 #include <memory>
 #include <vector>
 #include "tokens.h"
+#include "utilities.h"
 
 enum class NodeType {
   CLASSDECL, FUNCTIONDECL, VARIABLEDECL, ASSIGNMENT, LITERAL,
-  UNARYOP, BINARYOP, WHILESTATEMENT, IFSTATEMENT,
-  RETURNSTATEMENT, FUNCTIONCALL, ARRAYDECL, UNKNOWN
+  UNARYOP, BINARYOP, WHILESTATEMENT, IFSTATEMENT, METHODCALL, INDEXEXPR,
+  RETURNSTATEMENT, FUNCTIONCALL, ARRAYDECL
 };
 
 struct IAST {
-  IAST(NodeType type = NodeType::UNKNOWN): node_type(type){}
+  IAST(NodeType type, SourceLocation loc = {}): node_type(type), loc(loc){}
   virtual ~IAST() = default;
   const NodeType node_type{};
+  const SourceLocation loc{};
 };
 
 using ExprPtr    = std::unique_ptr<IAST>;
@@ -22,15 +24,16 @@ using StmtsPtr   = std::vector<ExprPtr>;
 using ExprsPtr   = StmtsPtr;
 using ParamSlice = std::vector<std::string>;
 
-auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void;
-static auto debug_see_nodetype(const StmtsPtr& stmts, int indent = 0) noexcept -> void {
+[[maybe_unused]] auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void;
+
+static inline auto debug_see_nodetype(const StmtsPtr& stmts, int indent = 0) noexcept -> void {
   for (const auto& stmt : stmts)
     debug_see_nodetype(stmt.get(), indent);
 }
 
 template <NodeType Knodetype>
 struct NodeImpl : IAST {
-  NodeImpl(): IAST(Knodetype) {}
+  NodeImpl(SourceLocation loc = {}): IAST(Knodetype, loc) {}
 };
 
 
@@ -52,10 +55,13 @@ struct FunctionDecl final : NodeImpl<NodeType::FUNCTIONDECL> {
 
 struct Assignment final : NodeImpl<NodeType::ASSIGNMENT> {
   std::string id{};
+  ExprPtr  target{};
   ExprPtr expr{};
 
-  Assignment(std::string id, ExprPtr expr)
-  : id(std::move(id)), expr(std::move(expr)){}
+  //Assignment(std::string id, ExprPtr expr) : id(std::move(id)), expr(std::move(expr)){}
+  Assignment(ExprPtr id, ExprPtr expr)
+  : target(std::move(id)), expr(std::move(expr)){}
+
 };
 
 struct Literal final : NodeImpl<NodeType::LITERAL> {
@@ -73,8 +79,8 @@ struct VariableDecl final : NodeImpl<NodeType::VARIABLEDECL> {
 };
 
 struct UnaryOp final : NodeImpl<NodeType::UNARYOP> {
+  TokenType op{};
   ExprPtr operand{};
-  TokenType op = TokenType::ILEGAL;
 
   UnaryOp(TokenType op, ExprPtr operand)
   : op(op), operand(std::move(operand)) {}
@@ -92,7 +98,6 @@ struct IfStatement final : NodeImpl<NodeType::IFSTATEMENT> {
   ExprPtr condition{};
   StmtsPtr then_body{};
 
-  // optional "else"
   std::variant<
     std::monostate,
     std::unique_ptr<IfStatement>, // else if
@@ -125,7 +130,25 @@ struct FunctionCall final : NodeImpl<NodeType::FUNCTIONCALL> {
   : id(std::move(id)), exprs(std::move(exprs)){ }
 };
 
+struct MethodCall final : NodeImpl<NodeType::METHODCALL> {
+  ExprPtr     object{};
+  std::string name{};
+  ExprsPtr    args{};
+  MethodCall(ExprPtr object, std::string name, ExprsPtr args, SourceLocation loc = {})
+    : NodeImpl(loc), object(std::move(object)),
+      name(std::move(name)), args(std::move(args)) {}
+};
+
 struct ArrayDecl final : NodeImpl<NodeType::ARRAYDECL> {
   ExprsPtr data{};
   ArrayDecl(ExprsPtr data): data(std::move(data)) { }
+};
+
+
+struct IndexExpr : NodeImpl<NodeType::INDEXEXPR> {
+  ExprPtr object;
+  ExprPtr index;
+
+  IndexExpr(ExprPtr obj, ExprPtr idx)
+    : object(std::move(obj)), index(std::move(idx)) {}
 };

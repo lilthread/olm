@@ -3,5 +3,5 @@ clase Persona
     este._name se name
     ret este 
   fin
-  var _name se " "
+  var _name se ""
 fin

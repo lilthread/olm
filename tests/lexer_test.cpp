@@ -3,16 +3,19 @@
 #include <stdexcept>
 #include "lexer.h"
 #include "tokens.h"
-#include "utils.h"
+#include "utilities.h"
 
 TEST(LexerTest, TokenizeBools) {
-  Lexer lx("verdadero falso");
+  Lexer lx("verdadero falso continuar");
   auto t1 = lx.next();
   EXPECT_EQ(t1.type, TokenType::BOOL);
   EXPECT_EQ(t1.literal, "verdadero");
   auto t2 = lx.next();
   EXPECT_EQ(t2.type, TokenType::BOOL);
   EXPECT_EQ(t2.literal, "falso");
+  auto t3 = lx.next();
+  EXPECT_EQ(t3.type, TokenType::CONTINUE);
+  EXPECT_EQ(t3.literal, "continuar");
 
   EXPECT_EQ(lx.next().type, TokenType::END_OF_FILE);
 }
@@ -129,7 +132,7 @@ TEST(LexerTest, TokenizeProgram) {
     clase Persona
       func new(name)
         _name se name
-        ret este
+        devolver este
       fin
       _name
     fin
@@ -146,7 +149,7 @@ TEST(LexerTest, TokenizeProgram) {
     Token{TokenType::IDENTIFIER, "_name"},
     Token{TokenType::ASSIGN, "se"},
     Token{TokenType::IDENTIFIER, "name"},
-    Token{TokenType::RETURN, "ret"},
+    Token{TokenType::RETURN, "devolver"},
     Token{TokenType::SELF, "este"},
     Token{TokenType::END, "fin"},
     Token{TokenType::IDENTIFIER, "_name"},
@@ -173,26 +176,26 @@ TEST(LexerTest, TestRowCol) {
   auto file = *read_file("./tests/test_row_col.txt");
   auto lx = Lexer{file};
   auto clase = lx.next();
-  ASSERT_EQ(0, clase.row) << "invalid row: " << clase.row;
-  ASSERT_EQ(1, clase.col) << "invalid col: " << clase.col;
+  ASSERT_EQ(0, clase.loc.row) << "invalid row: " << clase.loc.row;
+  ASSERT_EQ(1, clase.loc.col) << "invalid col: " << clase.loc.col;
   auto ident_persona = lx.next();
-  ASSERT_EQ(6, ident_persona.row) << "invalid row: " << ident_persona.row;
-  ASSERT_EQ(1, ident_persona.col) << "invalid col: " << ident_persona.col;
+  ASSERT_EQ(6, ident_persona.loc.row) << "invalid row: " << ident_persona.loc.row;
+  ASSERT_EQ(1, ident_persona.loc.col) << "invalid col: " << ident_persona.loc.col;
   auto method_new = lx.next();
-  ASSERT_EQ(2, method_new.row) << "invalid row: " << method_new.row;
-  ASSERT_EQ(2, method_new.col) << "invalid col: " << method_new.col;
+  ASSERT_EQ(2, method_new.loc.row) << "invalid row: " << method_new.loc.row;
+  ASSERT_EQ(2, method_new.loc.col) << "invalid col: " << method_new.loc.col;
   auto ident_new = lx.next();
-  ASSERT_EQ(7, ident_new.row) << "invalid row: " << ident_new.row;
-  ASSERT_EQ(2, ident_new.col) << "invalid col: " << ident_new.col;
+  ASSERT_EQ(7, ident_new.loc.row) << "invalid row: " << ident_new.loc.row;
+  ASSERT_EQ(2, ident_new.loc.col) << "invalid col: " << ident_new.loc.col;
   auto lparen = lx.next();
-  ASSERT_EQ(10, lparen.row) << "invalid row: " << lparen.row;
-  ASSERT_EQ(2, lparen.col) << "invalid col: " << lparen.col;
+  ASSERT_EQ(10, lparen.loc.row) << "invalid row: " << lparen.loc.row;
+  ASSERT_EQ(2, lparen.loc.col) << "invalid col: " << lparen.loc.col;
   auto ident_name = lx.next();
-  ASSERT_EQ(11, ident_name.row) << "invalid row: " << ident_name.row;
-  ASSERT_EQ(2, ident_name.col) << "invalid col: " << ident_name.col;
+  ASSERT_EQ(11, ident_name.loc.row) << "invalid row: " << ident_name.loc.row;
+  ASSERT_EQ(2, ident_name.loc.col) << "invalid col: " << ident_name.loc.col;
   auto rparen = lx.next();
-  ASSERT_EQ(15, rparen.row) << "invalid row: " << rparen.row;
-  ASSERT_EQ(2, rparen.col) << "invalid col: " << rparen.col;
+  ASSERT_EQ(15, rparen.loc.row) << "invalid row: " << rparen.loc.row;
+  ASSERT_EQ(2, rparen.loc.col) << "invalid col: " << rparen.loc.col;
   // That's enough :|
 }
 

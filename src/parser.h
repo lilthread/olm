@@ -31,7 +31,6 @@ private:
   auto parse_return_statement()      -> ExprPtr;
   auto parse_assignment_or_call()    -> ExprPtr;
 
-
   auto parse_expression()     -> ExprPtr;
   auto parse_or()             -> ExprPtr;
   auto parse_and()            -> ExprPtr;
@@ -50,3 +49,4 @@ private:
 
   [[noreturn]] auto error(std::string_view msg) const -> void;
 };
+

@@ -1,0 +1,16 @@
+
+clase Contador
+  var n se 0
+  func incrementar()
+    este.n se este.n + 1
+  fin
+  func decrementar()
+    este.n se este.n - 1
+  fin
+fin
+
+var c se Contador()
+c.incrementar()
+c.incrementar()
+c.incrementar()
+escribe(c.n)

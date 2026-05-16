@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "nodes.h"
 #include "parser.h"
+#include "tokens.h"
 
 template<class T>
 static auto as(const ExprPtr& ptr) -> T* {
@@ -77,17 +78,6 @@ TEST(Parser, VarDeclMissingEquals) {
 
 TEST(Parser, VarDeclMissingName) {
   EXPECT_THROW(parse_ok("var se 42"), std::runtime_error);
-}
-
-TEST(Parser, SimpleAssignment) {
-  auto stmts = parse_ok("x se 10");
-  ASSERT_EQ(stmts.size(), 1u);
-  auto* asgn = as<Assignment>(stmts[0]);
-  ASSERT_NE(asgn, nullptr);
-  EXPECT_EQ(asgn->id, "x");
-  auto* lit = as<Literal>(asgn->expr);
-  ASSERT_NE(lit, nullptr);
-  EXPECT_EQ(lit->token.literal, "10");
 }
 
 TEST(Parser, AssignmentWithExpression) {
@@ -247,7 +237,7 @@ TEST(Parser, FuncDeclWithParams) {
 }
 
 TEST(Parser, FuncDeclWithBody) {
-  auto stmts = parse_ok("func doble(x) ret x + x fin");
+  auto stmts = parse_ok("func doble(x) devolver x + x fin");
   auto* fn = as<FunctionDecl>(stmts[0]);
   ASSERT_NE(fn, nullptr);
   ASSERT_EQ(fn->body.size(), 1u);
@@ -256,15 +246,15 @@ TEST(Parser, FuncDeclWithBody) {
 }
 
 TEST(Parser, FuncDeclMissingFin) {
-  EXPECT_THROW(parse_ok("func f() ret 1"), std::runtime_error);
+  EXPECT_THROW(parse_ok("func f() devolver 1"), std::runtime_error);
 }
 
 TEST(Parser, FuncDeclMissingParen) {
-  EXPECT_THROW(parse_ok("func f ret 1 fin"), std::runtime_error);
+  EXPECT_THROW(parse_ok("func f devolver 1 fin"), std::runtime_error);
 }
 
 TEST(Parser, ReturnLiteral) {
-  auto stmts = parse_ok("func f() ret 42 fin");
+  auto stmts = parse_ok("func f() devolver 42 fin");
   auto* fn  = as<FunctionDecl>(stmts[0]);
   auto* ret = as<ReturnStatement>(fn->body[0]);
   ASSERT_NE(ret, nullptr);
@@ -274,7 +264,7 @@ TEST(Parser, ReturnLiteral) {
 }
 
 TEST(Parser, ReturnExpression) {
-  auto stmts = parse_ok("func f(a, b) ret a + b fin");
+  auto stmts = parse_ok("func f(a, b) devolver a + b fin");
   auto* fn  = as<FunctionDecl>(stmts[0]);
   auto* ret = as<ReturnStatement>(fn->body[0]);
   ASSERT_NE(ret, nullptr);
@@ -315,11 +305,11 @@ TEST(Parser, FuncCallNested) {
 }
 
 TEST(Parser, MethodCall) {
-  auto stmts = parse_ok("obj:metodo(1, 2)");
-  auto* call = as<FunctionCall>(stmts[0]);
-  ASSERT_NE(call, nullptr);
-  EXPECT_EQ(call->id, "obj:metodo");
-  ASSERT_EQ(call->exprs.size(), 2u);
+  auto stmts = parse_ok("obj.metodo(1, 2)");
+  auto* call = as<MethodCall>(stmts[0]);
+  ASSERT_NE(call, nullptr); 
+  EXPECT_EQ(call->name, "metodo");
+  ASSERT_EQ(call->args.size(), 2u);
 }
 
 TEST(Parser, IfSimple) {
@@ -340,7 +330,7 @@ TEST(Parser, IfWithBody) {
 }
 
 TEST(Parser, IfElse) {
-  auto stmts = parse_ok("si x haz var a se 1 sino haz var b se 2 fin");
+  auto stmts = parse_ok("si x haz var a se 1 sino var b se 2 fin");
   auto* ifst = as<IfStatement>(stmts[0]);
   ASSERT_NE(ifst, nullptr);
   ASSERT_TRUE(std::holds_alternative<StmtsPtr>(ifst->next));
@@ -381,7 +371,6 @@ TEST(Parser, WhileWithBody) {
   ASSERT_EQ(wh->body.size(), 1u);
   EXPECT_NE(as<Assignment>(wh->body[0]), nullptr);
 }
-
 TEST(Parser, WhileMissingHaz) {
   EXPECT_THROW(parse_ok("mientras verdadero fin"), std::runtime_error);
 }
@@ -409,7 +398,7 @@ TEST(Parser, ClassWithMembers) {
 }
 
 TEST(Parser, ClassWithMethod) {
-  auto stmts = parse_ok("clase Circulo func area() ret 0 fin fin");
+  auto stmts = parse_ok("clase Circulo func area() devolver 0 fin fin");
   auto* cls = as<ClassDecl>(stmts[0]);
   ASSERT_NE(cls, nullptr);
   ASSERT_EQ(cls->members.size(), 1u);
@@ -453,10 +442,28 @@ TEST(Parser, ArrayMissingBracket) {
 
 TEST(Parser, Subscript) {
   auto stmts = parse_ok("var r se arr[0]");
-  auto* call = as<FunctionCall>(as<VariableDecl>(stmts[0])->expr);
-  ASSERT_NE(call, nullptr);
-  EXPECT_EQ(call->id, "__index__");
-  ASSERT_EQ(call->exprs.size(), 2u);
+  auto* decl = as<VariableDecl>(stmts[0]);
+  ASSERT_NE(decl, nullptr);
+
+  auto* idx = as<IndexExpr>(decl->expr);
+  ASSERT_NE(idx, nullptr);
+
+  auto* obj = as<Literal>(idx->object);
+  ASSERT_NE(obj, nullptr);
+  ASSERT_EQ(obj->token.literal, "arr");
+
+  auto* index = as<Literal>(idx->index);
+  ASSERT_NE(index, nullptr);
+  ASSERT_EQ(index->token.literal, "0");
+}
+
+TEST(Parser, SubscriptAssignment) {
+  auto stmts = parse_ok("arr[0] se 5");
+
+  auto* assign = as<Assignment>(stmts[0]);
+  ASSERT_NE(assign, nullptr);
+
+  ASSERT_EQ(assign->target->node_type, NodeType::INDEXEXPR);
 }
 
 TEST(Parser, SelfKeyword) {
@@ -480,9 +487,9 @@ TEST(Parser, FibonacciFunction) {
   const char* src = R"(
     func fib(n)
       si n < 2 haz
-        ret n
-      sino haz
-        ret fib(n - 1) + fib(n - 2)
+        devolver n
+      sino
+        devolver fib(n - 1) + fib(n - 2)
       fin
     fin
   )";

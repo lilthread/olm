@@ -26,8 +26,9 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
       std::visit([&](const auto& next) {
         using T = std::decay_t<decltype(next)>;
 
+        //
         if constexpr (std::is_same_v<T, std::monostate>) {
-          // nothing
+          std::println("{} nulo", pad);
         }
         else if constexpr (std::is_same_v<T, std::unique_ptr<IfStatement>>) {
           std::println("{}  SINO SI {{", pad);
@@ -76,9 +77,9 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
     case NodeType::VARIABLEDECL: {
       auto* x = static_cast<const VariableDecl*>(node);
       if (!x->is_const)
-        std::print("{}VAR: {} = ", pad, x->id);
+        std::print("{}VAR: {} ", pad, x->id);
       else
-        std::println("{}const: {} = ", pad, x->id);
+        std::println("{}const: {} ", pad, x->id);
 
       if (x->expr) {
         std::println("{{", pad);
@@ -91,7 +92,7 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
 
     case NodeType::ASSIGNMENT: {
       auto* x = static_cast<const Assignment*>(node);
-      std::print("{}ASIGNACIÓN: {} =", pad, x->id);
+      std::print("{}ASIGNACIÓN: {} ", pad, x->id);
 
       if (x->expr) {
         std::println("{{", pad);

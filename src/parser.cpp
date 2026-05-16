@@ -1,8 +1,10 @@
 #include "parser.h"
+#include "nodes.h"
 #include "tokens.h"
 #include <format>
 #include <stdexcept>
 #include <string>
+// TODO IMPL CONTINUE
 
 auto Parser::at_end() const -> bool {
   return _current.type == TokenType::END_OF_FILE;
@@ -36,9 +38,7 @@ auto Parser::expect(TokenType t, std::string_view msg) -> Token {
 }
 
 auto Parser::error(std::string_view msg) const -> void {
-  throw std::runtime_error(
-      std::format("ParseError [line {} col {}]: {} (got '{}')",
-                  _current.row, _current.col, msg, _current.literal));
+  throw std::runtime_error(std::format("Error de sintaxis [lina {} col {}]: {} (error: '{}')", _current.loc.row, _current.loc.col, msg, _current.literal));
 }
 
 auto Parser::parse() -> StmtsPtr {
@@ -63,81 +63,79 @@ auto Parser::parse_statement() -> ExprPtr {
 }
 
 auto Parser::parse_var_decl(bool is_const) -> ExprPtr {
-  auto id_tok = expect(TokenType::IDENTIFIER, "expected variable name");
-  expect(TokenType::ASSIGN, "expected 'se' after variable name");
+  auto id_tok = expect(TokenType::IDENTIFIER, "se esperaba nombre de variable");
+  expect(TokenType::ASSIGN, "esperado 'se' después nombre de variable");
   auto expr = parse_expression();
   return std::make_unique<VariableDecl>(is_const, id_tok.literal, std::move(expr));
 }
 
 auto Parser::parse_function_decl() -> ExprPtr {
-  auto id_tok = expect(TokenType::IDENTIFIER, "expected function name");
-  expect(TokenType::LPAREN, "expected '(' after function name");
+  auto id_tok = expect(TokenType::IDENTIFIER, "se esperaba nombre de función");
+  expect(TokenType::LPAREN, "esperado '(' después función name");
   auto params = parse_param_list();
-  expect(TokenType::RPAREN, "expected ')' after parameters");
+  expect(TokenType::RPAREN, "esperado ')' después parámetros");
   auto body = parse_block();
-  expect(TokenType::END, "expected 'fin' to close function");
+  expect(TokenType::END, "esperado 'fin' al cerrar función");
   return std::make_unique<FunctionDecl>(id_tok.literal, std::move(params), std::move(body));
 }
 
 auto Parser::parse_class_decl() -> ExprPtr {
-  auto id_tok = expect(TokenType::IDENTIFIER, "expected class name");
+  auto id_tok = expect(TokenType::IDENTIFIER, "se esperaba un nombre a clase");
   auto members = parse_block();
-  expect(TokenType::END, "expected 'fin' to close class");
+  expect(TokenType::END, "esperado 'fin' al cerrar clase");
   return std::make_unique<ClassDecl>(id_tok.literal, std::move(members));
 }
 
 auto Parser::parse_if_statement() -> ExprPtr {
   auto condition = parse_expression();
-  expect(TokenType::DO, "expected 'haz' after if-condition");
+  expect(TokenType::DO, "se esperaba 'haz' después condición-si");
   auto then_body = parse_block();
 
   auto node = std::make_unique<IfStatement>(std::move(condition), std::move(then_body));
 
   if (match(TokenType::ELSE)) {
     if (match(TokenType::IF)) {
-      // else-if chain: parse recursively
       node->next = std::unique_ptr<IfStatement>(
           static_cast<IfStatement*>(parse_if_statement().release()));
-      // note: recursive call already consumed its own 'fin'
       return node;
-    } else {
-      // plain else block
-      expect(TokenType::DO, "expected 'haz' after 'sino'");
+    } else
       node->next = parse_block();
-    }
   }
 
-  expect(TokenType::END, "expected 'fin' to close if-statement");
+  expect(TokenType::END, "esperado 'fin' al cerrar condición-si");
   return node;
 }
 
 auto Parser::parse_while_statement() -> ExprPtr {
   auto condition = parse_expression();
-  expect(TokenType::DO, "expected 'haz' after while-condition");
+  expect(TokenType::DO, "esperado 'haz' después condición-mientras");
   auto body = parse_block();
-  expect(TokenType::END, "expected 'fin' to close while-loop");
+  expect(TokenType::END, "esperado 'fin' al cerrar condición-mientras");
   return std::make_unique<WhileStatement>(std::move(condition), std::move(body));
 }
 
 auto Parser::parse_return_statement() -> ExprPtr {
+  if (check(TokenType::END)) {
+    return std::unique_ptr<ReturnStatement>(nullptr);
+  }
   auto expr = parse_expression();
   return std::make_unique<ReturnStatement>(std::move(expr));
 }
 
 auto Parser::parse_assignment_or_call() -> ExprPtr {
-  // Parse expression normally; assignment is detected by checking what we got.
-  // We first parse an expression, then check for a trailing '='.
   auto expr = parse_expression();
 
-  if (match(TokenType::ASSIGN)) { // "se" keyword used as assignment
-    // LHS must be an identifier literal
-    if (expr->node_type != NodeType::LITERAL)
-      error("left-hand side of assignment must be an identifier");
-    auto* lit = static_cast<Literal*>(expr.get());
-    if (lit->token.type != TokenType::IDENTIFIER)
-      error("left-hand side of assignment must be an identifier");
-    auto rhs = parse_expression();
-    return std::make_unique<Assignment>(lit->token.literal, std::move(rhs));
+  if (match(TokenType::ASSIGN)) {
+    auto value = parse_assignment_or_call();
+
+    if (expr->node_type == NodeType::LITERAL) {
+      auto* lit = static_cast<Literal*>(expr.get());
+      if (lit->token.type != TokenType::IDENTIFIER)
+        error("El lado izquierdo debe ser identificador o acceso");
+    } else if (expr->node_type != NodeType::INDEXEXPR) {
+      error("Lado izquierdo inválido en asignación");
+    }
+    return std::make_unique<Assignment>(std::move(expr), std::move(value));
   }
 
   return expr;
@@ -145,8 +143,8 @@ auto Parser::parse_assignment_or_call() -> ExprPtr {
 
 auto Parser::parse_block() -> StmtsPtr {
   StmtsPtr stmts;
-  while (!at_end() &&
-      !check(TokenType::END) &&
+  while (!at_end() and
+      !check(TokenType::END) and
       !check(TokenType::ELSE)) {
     stmts.push_back(parse_statement());
   }
@@ -177,7 +175,7 @@ auto Parser::parse_and() -> ExprPtr {
 
 auto Parser::parse_equality() -> ExprPtr {
   auto left = parse_comparison();
-  while (check(TokenType::EQUAL) || check(TokenType::NOT_EQUAL)) {
+  while (check(TokenType::EQUAL) or check(TokenType::NOT_EQUAL)) {
     auto op = advance();
     auto right = parse_comparison();
     left = std::make_unique<BinaryOp>(std::move(left), std::move(right), op);
@@ -187,8 +185,8 @@ auto Parser::parse_equality() -> ExprPtr {
 
 auto Parser::parse_comparison() -> ExprPtr {
   auto left = parse_additive();
-  while (check(TokenType::LESSER_THAN)     || check(TokenType::GREATER_THAN) ||
-         check(TokenType::LESSER_OR_EQUAL) || check(TokenType::GREATER_OR_EQUAL)) {
+  while (check(TokenType::LESSER_THAN)     or check(TokenType::GREATER_THAN) or 
+         check(TokenType::LESSER_OR_EQUAL) or check(TokenType::GREATER_OR_EQUAL)) {
     auto op = advance();
     auto right = parse_additive();
     left = std::make_unique<BinaryOp>(std::move(left), std::move(right), op);
@@ -198,7 +196,7 @@ auto Parser::parse_comparison() -> ExprPtr {
 
 auto Parser::parse_additive() -> ExprPtr {
   auto left = parse_multiplicative();
-  while (check(TokenType::PLUS) || check(TokenType::MINUS)) {
+  while (check(TokenType::PLUS) or check(TokenType::MINUS)) {
     auto op = advance();
     auto right = parse_multiplicative();
     left = std::make_unique<BinaryOp>(std::move(left), std::move(right), op);
@@ -208,7 +206,7 @@ auto Parser::parse_additive() -> ExprPtr {
 
 auto Parser::parse_multiplicative() -> ExprPtr {
   auto left = parse_unary();
-  while (check(TokenType::STAR) || check(TokenType::SLASH)) {
+  while (check(TokenType::STAR) or check(TokenType::SLASH)) {
     auto op = advance();
     auto right = parse_unary();
     left = std::make_unique<BinaryOp>(std::move(left), std::move(right), op);
@@ -217,7 +215,7 @@ auto Parser::parse_multiplicative() -> ExprPtr {
 }
 
 auto Parser::parse_unary() -> ExprPtr {
-  if (check(TokenType::BANG) || check(TokenType::MINUS)) {
+  if (check(TokenType::BANG) or check(TokenType::MINUS)) {
     auto op = advance();
     auto operand = parse_unary();
     return std::make_unique<UnaryOp>(op.type, std::move(operand));
@@ -225,7 +223,6 @@ auto Parser::parse_unary() -> ExprPtr {
   return parse_postfix();
 }
 
-// id(args) | id.method(args) | expr[idx]
 auto Parser::parse_postfix() -> ExprPtr {
   auto expr = parse_primary();
 
@@ -233,67 +230,32 @@ auto Parser::parse_postfix() -> ExprPtr {
     if (check(TokenType::LPAREN)) {
       // Direct call: the primary must have been an identifier
       if (expr->node_type != NodeType::LITERAL)
-        error("only identifiers are callable");
+        error("solo los identificadores son llamables");
       auto* lit = static_cast<Literal*>(expr.get());
       if (lit->token.type != TokenType::IDENTIFIER)
-        error("only identifiers are callable");
+        error("solo los identificadores son llamables");
       std::string id = lit->token.literal;
       advance(); // consume '('
       auto args = parse_arg_list();
-      expect(TokenType::RPAREN, "expected ')' after argument list");
+      expect(TokenType::RPAREN, "esperado ')' después lista de argumentos");
       expr = std::make_unique<FunctionCall>(std::move(id), std::move(args));
 
     } else if (match(TokenType::DOT)) {
-      // Member access / method call: build "obj.member" as a literal or call
-      auto member = expect(TokenType::IDENTIFIER, "expected member name after '.'");
-      /*if (check(TokenType::LPAREN)) {
+      auto member = expect(TokenType::IDENTIFIER, "se esperaba id del miembro después '.'");
+
+      if (check(TokenType::LPAREN)) {
         advance(); // consume '('
         auto args = parse_arg_list();
-        expect(TokenType::RPAREN, "expected ')' after argument list");
-        // Represent as FunctionCall with id = "lhs.member"
-        // We encode the callee as a dotted string; the evaluator can split on '.'.
-        std::string callee;
-        if (expr->node_type == NodeType::LITERAL)
-          callee = static_cast<Literal*>(expr.get())->token.literal + "." + member.literal;
-        else if (expr->node_type == NodeType::FUNCTIONCALL)
-          callee = static_cast<FunctionCall*>(expr.get())->id + "." + member.literal;
-        else
-          callee = "<expr>." + member.literal;
-        expr = std::make_unique<FunctionCall>(std::move(callee), std::move(args));
-      } else {*/
-        // Property access: encode as a dotted identifier literal
-        Token dot_token{TokenType::IDENTIFIER,
-                        static_cast<Literal*>(expr.get())->token.literal + "." + member.literal,
-                        member.row, member.col};
+        expect(TokenType::RPAREN, "esperado ')' después de llamada a metodo");
+        expr = std::make_unique<MethodCall>(std::move(expr), member.literal, std::move(args), member.loc);
+      } else {
+        auto dot_token = Token{TokenType::IDENTIFIER, static_cast<Literal*>(expr.get())->token.literal + "." + member.literal, member.loc};
         expr = std::make_unique<Literal>(dot_token);
-      //}
-
-    }else if (match(TokenType::COLON)){
-      auto member = expect(TokenType::IDENTIFIER, "expected member name after ':'");
-      expect(TokenType::LPAREN, "expected '(' after identifier of method");
-      auto args = parse_arg_list();
-      expect(TokenType::RPAREN, "expected ')' after argument list");
-
-      std::string callee;
-      if (expr->node_type == NodeType::LITERAL)
-        callee = static_cast<Literal*>(expr.get())->token.literal + ":" + member.literal;
-      else if (expr->node_type == NodeType::FUNCTIONCALL)
-        callee = static_cast<FunctionCall*>(expr.get())->id + ":" + member.literal;
-      else
-        callee = "<expr>:" + member.literal;
-
-      expr = std::make_unique<FunctionCall>(std::move(callee), std::move(args));
-
+      }
     } else if (match(TokenType::LBRACKET)) {
-      // Subscript: encode as binary op with '[' … but TokenType has no LBRACKET op.
-      // We represent it as a FunctionCall to the built-in "__index__".
       auto index = parse_expression();
-      expect(TokenType::RBRACKET, "expected ']' after index expression");
-      ExprsPtr args;
-      args.push_back(std::move(expr));
-      args.push_back(std::move(index));
-      expr = std::make_unique<FunctionCall>("__index__", std::move(args));
-
+      expect(TokenType::RBRACKET, "esperado ']' en index");
+      expr = std::make_unique<IndexExpr>( std::move(expr), std::move(index));
     } else {
       break;
     }
@@ -304,8 +266,8 @@ auto Parser::parse_postfix() -> ExprPtr {
 auto Parser::parse_primary() -> ExprPtr {
   using enum TokenType;
 
-  if (check(INTEGER) || check(FLOAT) || check(STRING) ||
-      check(BOOL)    || check(SELF)) {
+  if (check(INTEGER) or check(FLOAT) or check(STRING) or
+      check(BOOL)    or check(SELF)  or check(NIL)) {
     return std::make_unique<Literal>(advance());
   }
 
@@ -315,7 +277,7 @@ auto Parser::parse_primary() -> ExprPtr {
 
   if (match(LPAREN)) {
     auto expr = parse_expression();
-    expect(RPAREN, "expected ')' after expression");
+    expect(RPAREN, "esperado ')' después expresión");
     return expr;
   }
 
@@ -323,14 +285,14 @@ auto Parser::parse_primary() -> ExprPtr {
     return parse_array_literal();
   }
 
-  error("unexpected token in expression");
+  error("token invalido en expresión");
 }
 
 auto Parser::parse_param_list() -> ParamSlice {
   ParamSlice params;
   if (check(TokenType::RPAREN)) return params; // empty
   do {
-    auto tok = expect(TokenType::IDENTIFIER, "expected parameter name");
+    auto tok = expect(TokenType::IDENTIFIER, "se esperaba nombre del parámetro");
     params.push_back(tok.literal);
   } while (match(TokenType::COMMA));
   return params;
@@ -348,10 +310,10 @@ auto Parser::parse_arg_list() -> ExprsPtr {
 auto Parser::parse_array_literal() -> ExprPtr {
   ExprsPtr items;
   if (!check(TokenType::RBRACKET)) {
-    do {
+    do
       items.push_back(parse_expression());
-    } while (match(TokenType::COMMA));
+    while (match(TokenType::COMMA));
   }
-  expect(TokenType::RBRACKET, "expected ']' to close array literal");
+  expect(TokenType::RBRACKET, "esperaba que ']' cerrara el array litera");
   return std::make_unique<ArrayDecl>(std::move(items));
 }

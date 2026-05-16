@@ -1,0 +1,132 @@
+var turno se 'X'
+
+var tablero se [
+  ['#','#','#'],
+  ['#','#','#'],
+  ['#','#','#']
+]
+
+func imprimir_tablero()
+  escribe("  [1, 2, 3]")
+  
+  var fila se 0
+  mientras fila < 3 haz
+    escribe(fila + 1, tablero[fila])
+    fila se fila + 1
+  fin
+fin
+
+func movimiento_valido(fila, col)
+  si fila < 0 o fila > 2 haz
+    devolver falso
+  fin
+
+  si col < 0 o col > 2 haz
+    devolver falso
+  fin
+
+  si tablero[fila][col] != '#' haz
+    devolver falso
+  fin
+
+  devolver verdadero
+fin
+
+func ganador(simbolo)
+  var i se 0
+
+  -- filas
+  mientras i < 3 haz
+    si tablero[i][0] = simbolo y tablero[i][1] = simbolo y tablero[i][2] = simbolo haz
+      devolver verdadero
+    fin
+    i se i + 1
+  fin
+
+  -- columnas
+  i se 0
+  mientras i < 3 haz
+    si tablero[0][i] = simbolo y tablero[1][i] = simbolo y tablero[2][i] = simbolo haz
+      devolver verdadero
+    fin
+    i se i + 1
+  fin
+
+  -- diagonales
+  si tablero[0][0] = simbolo y tablero[1][1] = simbolo y tablero[2][2] = simbolo haz
+    devolver verdadero
+  fin
+
+  si tablero[0][2] = simbolo y tablero[1][1] = simbolo y tablero[2][0] = simbolo haz
+    devolver verdadero
+  fin
+
+  devolver falso
+fin
+
+func tablero_lleno()
+  var f se 0
+
+  mientras f < 3 haz
+    var c se 0
+
+    mientras c < 3 haz
+      si tablero[f][c] = '#' haz
+        devolver falso
+      fin
+
+      c se c + 1
+    fin
+
+    f se f + 1
+  fin
+
+  devolver verdadero
+fin
+
+func cambiar_turno()
+  si turno = 'X' haz
+    turno se 'O'
+  sino
+    turno se 'X'
+  fin
+fin
+
+func jugar()
+  mientras verdadero haz
+    imprimir_tablero()
+
+    escribe("Turno:", turno)
+    escribe("Ingresa fila y columna (ej: 2 3): ")
+
+    var entrada se leer()
+    var partes se entrada.separar(" ")
+
+    var fila se entero(partes[0]) - 1
+    var col se entero(partes[1]) - 1
+
+    si no movimiento_valido(fila, col) haz
+      escribe("Movimiento inválido")
+      escribe("Fin.")
+      salir()
+    fin
+
+    tablero[fila][col] se turno
+
+    si ganador(turno) haz
+      imprimir_tablero()
+      escribe("Ganó:", turno)
+      salir()
+    fin
+
+    si tablero_lleno() haz
+      imprimir_tablero()
+      escribe("Empate")
+      salir()
+    fin
+
+    cambiar_turno()
+  fin
+fin
+
+escribe(jugar())

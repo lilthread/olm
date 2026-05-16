@@ -4,23 +4,28 @@
 #include <flat_map>
 #include <string_view>
 
+// TODO: FIX {ROW, COL} LOCATION MISMATCH
+
 const std::flat_map<std::string_view, TokenType> keywords {
   {"se",        TokenType::ASSIGN},
   {"mientras",  TokenType::WHILE},
   {"si",        TokenType::IF},
+  {"no",        TokenType::BANG},
+  {"nulo",      TokenType::NIL},
   {"sino",      TokenType::ELSE},
   {"var",       TokenType::VAR},
   {"const",     TokenType::CONST},
   {"func",      TokenType::FUNCTION},
   {"fin",       TokenType::END},
   {"haz",       TokenType::DO},
-  {"ret",       TokenType::RETURN},
+  {"devolver",  TokenType::RETURN},
   {"verdadero", TokenType::BOOL},
   {"falso",     TokenType::BOOL},
   {"clase",     TokenType::CLASS},
   {"este",      TokenType::SELF},
   {"o",         TokenType::OR},
   {"y",         TokenType::AND},
+  {"continuar", TokenType::CONTINUE},
 };
 
 auto Lexer::next() -> Token {
@@ -62,20 +67,20 @@ auto Lexer::next() -> Token {
           return make_char(GREATER_THAN, chr);
         else{
           advance();
-          return {GREATER_OR_EQUAL, ">=", _row - 2, _col};
+          return {GREATER_OR_EQUAL, ">=", {_row - 2, _col}};
         }
       case '<':
         if(get_char_from_idx() != '=')
           return make_char(LESSER_THAN, chr);
         else{
           advance();
-          return {LESSER_OR_EQUAL, "<=", _row - 2, _col};
+          return {LESSER_OR_EQUAL, "<=", {_row - 2, _col}};
         }
         break;
       case '!':
         if(get_char_from_idx() == '='){
           advance();
-          return {NOT_EQUAL, "!=", _row - 2, _col};
+          return {NOT_EQUAL, "!=", {_row - 2, _col}};
         }else
           return make_char(BANG, chr);
       case '\'':
@@ -89,7 +94,7 @@ auto Lexer::next() -> Token {
         advance(); // Skip ' or ""
         auto str = _source.substr(start, _idx - start - 1);
 
-        return {STRING, std::move(str), _row - str.size(), _col};
+        return {STRING, std::move(str), {_row - str.size(), _col}};
       }
       case '$':
         advance();
@@ -114,7 +119,7 @@ auto Lexer::next() -> Token {
         number_type = TokenType::FLOAT;
       }
       auto str = _source.substr(start, _idx - start);
-      return {number_type, str, _row - str.size(), _col};
+      return {number_type, str, {_row - str.size(), _col}};
     }
     else if(std::isalpha(chr) || chr == '_'){
       std::size_t start = _idx - 1;
@@ -125,8 +130,8 @@ auto Lexer::next() -> Token {
       auto row = _row - str.size();
 
       if (auto it = keywords.find(str); it != keywords.end()) 
-        return {it->second, str, row, _col};
-      return {TokenType::IDENTIFIER, str, row, _col};
+        return {it->second, str, {row, _col}};
+      return {TokenType::IDENTIFIER, str, {row, _col}};
     }
   }
   return {TokenType::END_OF_FILE, ""};
@@ -152,5 +157,5 @@ auto Lexer::at_end() const -> bool {
 }
 
 auto Lexer::make_char(TokenType ttype, char chr) -> Token {
-  return {ttype, std::string(1, chr), _row - 1, _col};
+  return {ttype, std::string(1, chr), {_row - 1, _col}};
 }

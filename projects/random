@@ -1,0 +1,10 @@
+escribe("entero: ")
+escribe(aleatorio(50, 100))
+escribe(aleatorio(0, 100))
+escribe(aleatorio(0, 100))
+escribe("decimal: ")
+escribe(aleatorio(50.0, 100))
+escribe(aleatorio(0, 100))
+escribe(aleatorio(0, 0))
+
+

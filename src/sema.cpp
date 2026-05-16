@@ -1,6 +1,10 @@
 #include "sema.h"
-#include <format>
+#include <cstddef>
 #include <cassert>
+#include "builtins.h"
+#include "nodes.h"
+#include "utilities.h"
+
 
 auto Scope::define(Symbol sym) -> void {
   _syms.insert_or_assign(sym.name, std::move(sym));
@@ -21,11 +25,11 @@ auto Sema::pop_scope()  -> void { assert(!_scopes.empty()); _scopes.pop_back(); 
 
 auto Sema::define(Symbol sym) -> void {
   assert(!_scopes.empty());
-  // Redeclaration in the SAME scope is always an error.
-  if (_scopes.back().contains(sym.name))
-    error(std::format("'{}' is already declared in this scope", sym.name));
-  else
+  if (_scopes.back().contains(sym.name)) {
+    error(SemanticErrorCode::REDEFINITION, sym.location, sym.name);
+  } else {
     _scopes.back().define(std::move(sym));
+  }
 }
 
 auto Sema::resolve(std::string_view name) const -> std::optional<Symbol> {
@@ -34,13 +38,8 @@ auto Sema::resolve(std::string_view name) const -> std::optional<Symbol> {
   return std::nullopt;
 }
 
-auto Sema::error(std::string msg) -> void {
-  _errors.push_back({std::move(msg)});
-}
-
-auto Sema::flush_errors() -> void {
-  if (!_errors.empty())
-    throw SemanticException(std::move(_errors));
+auto Sema::error(SemanticErrorCode code, SourceLocation    loc, std::string       subject, std::size_t       expected, std::size_t       got) -> void {
+  _errors.emit({code, loc, std::move(subject), expected, got});
 }
 
 auto Sema::analyze(const StmtsPtr& program) -> void {
@@ -51,15 +50,20 @@ auto Sema::analyze(const StmtsPtr& program) -> void {
   _in_class   = false;
 
   push_scope(); // global scope
+
+  for (const auto& b : Builtins::INFO) {
+    _scopes.back().define({
+      .name     = b.name,
+      .kind     = SymbolKind::FUNCTION,
+      .arity    = b.arity,
+      .defined  = true,
+    });
+  }
   check_stmts(program);
   pop_scope();
 
-  flush_errors();
+  _errors.flush();
 }
-
-// ─────────────────────────────────────────────────────────────
-//  Statement dispatch
-// ─────────────────────────────────────────────────────────────
 
 auto Sema::check_stmts(const StmtsPtr& stmts) -> void {
   for (auto& s : stmts) check_stmt(s.get());
@@ -76,13 +80,10 @@ auto Sema::check_stmt(const IAST* node) -> void {
     case NodeType::WHILESTATEMENT: check_while      (static_cast<const WhileStatement*>(node)); break;
     case NodeType::RETURNSTATEMENT:check_return     (static_cast<const ReturnStatement*>(node));break;
     case NodeType::FUNCTIONCALL:   check_func_call  (static_cast<const FunctionCall*>  (node)); break;
+    case NodeType::METHODCALL:     check_method_call(static_cast<const MethodCall*>    (node)); break;
     default:                       check_expr(node); break;
   }
 }
-
-// ─────────────────────────────────────────────────────────────
-//  Expression dispatch
-// ─────────────────────────────────────────────────────────────
 
 auto Sema::check_expr(const IAST* node) -> void {
   if (!node) return;
@@ -92,9 +93,18 @@ auto Sema::check_expr(const IAST* node) -> void {
     case NodeType::UNARYOP:      check_unary     (static_cast<const UnaryOp*>     (node)); break;
     case NodeType::FUNCTIONCALL: check_func_call (static_cast<const FunctionCall*>(node)); break;
     case NodeType::ARRAYDECL:    check_array     (static_cast<const ArrayDecl*>   (node)); break;
+    case NodeType::METHODCALL:   check_method_call(static_cast<const MethodCall*>    (node)); break;
+    case NodeType::INDEXEXPR: {
+      auto* idx = static_cast<const IndexExpr*>(node);
+
+      check_expr(idx->object.get());
+      check_expr(idx->index.get());
+      break;
+    }
     default: break;
   }
 }
+
 
 auto Sema::check_var_decl(const VariableDecl* node) -> void {
   check_expr(node->expr.get());
@@ -106,9 +116,8 @@ auto Sema::check_var_decl(const VariableDecl* node) -> void {
   });
 }
 
-
 auto Sema::check_func_decl(const FunctionDecl* node) -> void {
-  bool already_preregistered = _in_class && _scopes.back().contains(node->id);
+  bool already_preregistered = _in_class and _scopes.back().contains(node->id);
   if (!already_preregistered)
     define({
       .name  = node->id,
@@ -128,18 +137,30 @@ auto Sema::check_func_decl(const FunctionDecl* node) -> void {
   pop_scope();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Class declaration:  clase id members fin
-// ─────────────────────────────────────────────────────────────
-
 auto Sema::check_class_decl(const ClassDecl* node) -> void {
-  define({.name = node->id, .kind = SymbolKind::CLASS});
+  bool   has_ctor   = false;
+  std::size_t ctor_arity = 0;
+  for (auto& m : node->members) {
+    if (m->node_type == NodeType::FUNCTIONDECL) {
+      auto* fn = static_cast<const FunctionDecl*>(m.get());
+      if (fn->id == "crear") {
+        has_ctor   = true;
+        ctor_arity = fn->params.size();
+      }
+    }
+  }
+
+  define({
+    .name       = node->id,
+    .kind       = SymbolKind::CLASS,
+    .ctor_arity = ctor_arity,
+    .has_ctor   = has_ctor,
+  });
 
   push_scope();
   bool prev = _in_class;
   _in_class = true;
 
-  // Pre-register member functions so they can call each other.
   for (auto& m : node->members) {
     if (m->node_type == NodeType::FUNCTIONDECL) {
       auto* fn = static_cast<const FunctionDecl*>(m.get());
@@ -153,39 +174,46 @@ auto Sema::check_class_decl(const ClassDecl* node) -> void {
   _in_class = prev;
   pop_scope();
 }
-
-// ─────────────────────────────────────────────────────────────
-//  Assignment:  id se expr
-// ─────────────────────────────────────────────────────────────
-
 auto Sema::check_assignment(const Assignment* node) -> void {
-  // Dotted names (e.g. "obj.field") — only check the root identifier.
-  auto dot = node->id.find('.');
-  std::string root = (dot == std::string::npos) ? node->id : node->id.substr(0, dot);
+  auto loc = node->loc;
 
-  if (root == "este") {
-    if (!_in_class)
-      error("'este' used outside of a class or method");
+  if (auto lit = dynamic_cast<const Literal*>(node->target.get())) {
+
+    if (lit->token.type != TokenType::IDENTIFIER) {
+      error(SemanticErrorCode::INVALID_ASSIGN_TARGET, loc);
+      return;
+    }
+
+    const std::string& name = lit->token.literal;
+
+    if (name.rfind("este.", 0) == 0) {
+      if (!_in_class)
+        error(SemanticErrorCode::THIS_USED_OUTSIDE_CLASS, loc);
+    } else if(name.find('.') == std::string::npos) {
+
+      auto sym = resolve(name);
+
+      if (!sym)
+        error(SemanticErrorCode::ASSIGNMENT_TO_UNDECLARED, loc, name);
+      else if (sym->kind == SymbolKind::CONSTANT)
+        error(SemanticErrorCode::ASSIGNMENT_TO_CONST, loc, name);
+      else if (sym->kind == SymbolKind::FUNCTION)
+        error(SemanticErrorCode::ASSIGNMENT_TO_FUNC, loc, name);
+      else if (sym->kind == SymbolKind::CLASS)
+        error(SemanticErrorCode::ASSIGNMENT_TO_CLASS, loc, name);
+    }
     check_expr(node->expr.get());
     return;
   }
-
-  auto sym = resolve(root);
-  if (!sym)
-    error(std::format("assignment to undeclared variable '{}'", root));
-  else if (sym->kind == SymbolKind::CONSTANT)
-    error(std::format("assignment to constant '{}'", root));
-  else if (sym->kind == SymbolKind::FUNCTION)
-    error(std::format("assignment to function '{}'", root));
-  else if (sym->kind == SymbolKind::CLASS)
-    error(std::format("assignment to class '{}'", root));
-
-  check_expr(node->expr.get());
+  if (auto idx = dynamic_cast<const IndexExpr*>(node->target.get())) {
+    check_expr(idx->object.get());
+    check_expr(idx->index.get());
+    check_expr(node->expr.get());
+    return;
+  }
+ 
+  error(SemanticErrorCode::INVALID_ASSIGN_TARGET, loc);
 }
-
-// ─────────────────────────────────────────────────────────────
-//  If statement
-// ─────────────────────────────────────────────────────────────
 
 auto Sema::check_if(const IfStatement* node) -> void {
   check_expr(node->condition.get());
@@ -203,10 +231,6 @@ auto Sema::check_if(const IfStatement* node) -> void {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  While statement
-// ─────────────────────────────────────────────────────────────
-
 auto Sema::check_while(const WhileStatement* node) -> void {
   check_expr(node->condition.get());
 
@@ -217,55 +241,59 @@ auto Sema::check_while(const WhileStatement* node) -> void {
   pop_scope();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Return statement
-// ─────────────────────────────────────────────────────────────
-
 auto Sema::check_return(const ReturnStatement* node) -> void {
-  if (_func_depth == 0)
-    error("'ret' used outside of a function");
+  if (_func_depth == 0) {
+    error(SemanticErrorCode::RET_OUTSIDE_FUNC, node->loc);
+  }
   check_expr(node->expr.get());
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Function call
-// ─────────────────────────────────────────────────────────────
+auto Sema::check_method_call(const MethodCall* node) -> void {
+  check_expr(node->object.get());
+  for (auto& a : node->args) check_expr(a.get());
+}
 
 auto Sema::check_func_call(const FunctionCall* node) -> void {
-  // Built-in subscript operator injected by the parser.
-  if (node->id == "__index__") {
-    for (auto& a : node->exprs) check_expr(a.get());
-    return;
-  }
-
-  // For dotted calls (obj.method) just verify the root object is declared.
+  auto loc = node->loc;
   auto dot = node->id.find('.');
   if (dot != std::string::npos) {
     std::string root = node->id.substr(0, dot);
-    if (!resolve(root))
-      error(std::format("undeclared identifier '{}'", root));
-    for (auto& a : node->exprs) check_expr(a.get());
+    if (root == "este") {
+      if (!_in_class) {
+        error(SemanticErrorCode::THIS_USED_OUTSIDE_CLASS, loc, root);
+      }
+    } else {
+      if (!resolve(root)){
+        error(SemanticErrorCode::UNDECLARED_ID, loc, root);
+      }
+    }
+    for (auto& a : node->exprs)
+      check_expr(a.get());
     return;
   }
 
   auto sym = resolve(node->id);
   if (!sym) {
-    error(std::format("call to undeclared function '{}'", node->id));
-  } else if (sym->kind != SymbolKind::FUNCTION) {
-    error(std::format("'{}' is not a function", node->id));
-  } else {
-    // Arity check.
-    if (node->exprs.size() != sym->arity)
-      error(std::format("'{}' expects {} argument(s) but got {}",
-                        node->id, sym->arity, node->exprs.size()));
+    error(SemanticErrorCode::UNDECLARED_FUNC, loc, node->id);
+  } else if (sym->kind == SymbolKind::CLASS) {
+    if (!sym->has_ctor) {
+      if (!node->exprs.empty())
+        error(SemanticErrorCode::CLASS_NO_CTOR, loc, node->id, 0, node->exprs.size());
+    } else {
+      if (node->exprs.size() != sym->ctor_arity)
+        error(SemanticErrorCode::CTOR_ARITY_MISMATCH, loc, node->id, sym->ctor_arity, node->exprs.size());
+    }
+  } else if (sym->kind != SymbolKind::FUNCTION)
+    error(SemanticErrorCode::NOT_A_FUNC, loc, node->id);
+  else {
+    auto* desc = Builtins::is_builtin(node->id);
+    bool variadic = desc and desc->variadic;
+    if (!variadic and node->exprs.size() != sym->arity)
+      error(SemanticErrorCode::FUNC_ARITY_MISMATCH, loc, node->id, sym->arity, node->exprs.size());
   }
-
-  for (auto& a : node->exprs) check_expr(a.get());
+  for (auto& a : node->exprs)
+    check_expr(a.get());
 }
-
-// ─────────────────────────────────────────────────────────────
-//  Binary operation
-// ─────────────────────────────────────────────────────────────
 
 auto Sema::check_binary(const BinaryOp* node) -> void {
   check_expr(node->left.get());
@@ -277,32 +305,32 @@ auto Sema::check_unary(const UnaryOp* node) -> void {
 }
 
 auto Sema::check_array(const ArrayDecl* node) -> void {
-  for (auto& el : node->data) check_expr(el.get());
+  for (auto& el : node->data)
+    check_expr(el.get());
 }
 
 auto Sema::check_literal(const Literal* node) -> void {
+  auto loc = node->loc;
   using enum TokenType;
   switch (node->token.type) {
     case IDENTIFIER: {
-      // Dotted member accesses are stored as "obj.field" identifiers.
+      auto lit =  node->token.literal;
       auto dot  = node->token.literal.find('.');
-      auto root = (dot == std::string::npos)
-                    ? node->token.literal
-                    : node->token.literal.substr(0, dot);
- 
+      auto  root = (dot == std::string::npos) ? lit : lit.substr(0, dot);
+
       if (root == "este") {
         if (!_in_class)
-          error("'este' used outside of a class or method");
+          error(SemanticErrorCode::THIS_USED_OUTSIDE_CLASS, loc);
         break;
       }
-
       if (!resolve(root))
-        error(std::format("use of undeclared identifier '{}'", root));
+        error(SemanticErrorCode::UNDECLARED_ID, loc, root);
       break;
     }
     case SELF:
-      if (!_in_class)
-        error("'este' used outside of a class or method");
+      if (!_in_class) {
+        error(SemanticErrorCode::THIS_USED_OUTSIDE_CLASS, loc);
+      }
       break;
     default: break;
   }
