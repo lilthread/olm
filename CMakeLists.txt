@@ -7,7 +7,7 @@ project(
 )
 
 set(CMAKE_CXX_STANDARD 23)
-add_executable(skibidi src/main.cpp)
+add_executable(olm src/main.cpp)
 add_library(headerfiles STATIC)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 
@@ -41,7 +41,7 @@ target_sources(headerfiles
 )
 
 
-target_link_libraries(skibidi
+target_link_libraries(olm
   PRIVATE
     headerfiles
 )
