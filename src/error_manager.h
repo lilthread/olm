@@ -1,4 +1,6 @@
 #pragma once
+#include <exception>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include "utilities.h"
@@ -39,7 +41,6 @@ private:
   std::vector<SemanticError> _errors;
 };
 
-
 struct SemanticException final : std::runtime_error {
   std::vector<SemanticError> errors;
   explicit SemanticException(std::vector<SemanticError> errs)
@@ -54,8 +55,7 @@ private:
 };
 
 struct RuntimeError final : std::runtime_error {
-  explicit RuntimeError(const std::string& msg)
-      : std::runtime_error("error de tiempo de ejecución: " + msg) {}
+  explicit RuntimeError(const std::string& msg) :
+    std::runtime_error("error de tiempo de ejecución: " + msg) {}
 };
-
 

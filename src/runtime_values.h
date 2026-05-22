@@ -17,6 +17,7 @@ static inline auto make(int64_t v)     -> ValuePtr { return std::make_shared<Val
 static inline auto make(double v)      -> ValuePtr { return std::make_shared<Value>(v); }
 static inline auto make(bool v)        -> ValuePtr { return std::make_shared<Value>(v); }
 static inline auto make(std::string v) -> ValuePtr { return std::make_shared<Value>(std::move(v)); }
+static inline auto make(std::vector<ValuePtr> v) -> ValuePtr { return std::make_shared<Value>(std::move(v)); }
 static inline auto make_null()         -> ValuePtr { return std::make_shared<Value>(); }
 
 struct Value final {

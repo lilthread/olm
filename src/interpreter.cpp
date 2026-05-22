@@ -4,12 +4,13 @@
 #include <format>
 #include <iterator>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 #include "builtins.h"
+#include "nodes.h"
 #include "runtime_values.h"
 #include "error_manager.h"
+#include "std.h"
 
 auto Environment::push() -> void { _scopes.emplace_back(); }
 auto Environment::pop()  -> void { assert(!_scopes.empty()); _scopes.pop_back(); }
@@ -43,7 +44,6 @@ auto Environment::has(const std::string& name) const -> bool {
 }
 
 auto Interpreter::run(const StmtsPtr& program) -> void {
-  Builtins::load_builtins(_builtins);
   exec_stmts(program);
 }
 
@@ -334,17 +334,15 @@ auto Interpreter::eval_unary(const UnaryOp* node) -> ValuePtr {
   }
 }
 
-auto Interpreter::call_builtin(const std::string& name, std::vector<ValuePtr> args) -> ValuePtr {
-  if (auto* desc = Builtins::is_builtin(name); desc && !desc->variadic) {
+auto Interpreter::call_builtin(const std::string& name, std::span<ValuePtr> args) -> ValuePtr {
+  auto* desc = find_builtin(FREE_FUNCTIONS, name); 
+  if (desc && !desc->variadic) {
     if (args.size() != desc->arity)
       throw RuntimeError(std::format(
         "'{}' espera {} argumento(s) pero recibio {}",
         name, desc->arity, args.size()));
-  }
-  auto it = _builtins.find(name);
-  if (it == _builtins.end())
-    throw RuntimeError(std::format("funcion integrada '{}' no encontrada", name));
-  return it->second(std::move(args));
+  } 
+  return desc->fn(nullptr, std::move(args));
 }
 
 auto Interpreter::eval_call(const FunctionCall* node) -> ValuePtr {
@@ -367,12 +365,12 @@ auto Interpreter::eval_call(const FunctionCall* node) -> ValuePtr {
     throw RuntimeError("solo se puede indexar un arreglo");
   }
 
-  if (_builtins.contains(node->id)) {
+  if (is_builtin(node->id)) {
     std::vector<ValuePtr> args;
     args.reserve(node->exprs.size());
     for (auto& a : node->exprs)
       args.push_back(eval(a.get()));
-    return call_builtin(node->id, std::move(args));
+    return call_builtin(node->id, args);
   }
 
   if (_classes.contains(node->id)) {
@@ -380,7 +378,7 @@ auto Interpreter::eval_call(const FunctionCall* node) -> ValuePtr {
     args.reserve(node->exprs.size());
     for (auto& a : node->exprs)
       args.push_back(eval(a.get()));
-    return instantiate(node->id, std::move(args));
+    return instantiate(node->id, args);
   }
 
   auto dot = node->id.find('.');
@@ -406,7 +404,7 @@ auto Interpreter::eval_call(const FunctionCall* node) -> ValuePtr {
     for (auto& a : node->exprs)
       args.push_back(eval(a.get()));
 
-    return call_function(it->second, std::move(args), inst);
+    return call_function(it->second, args, inst);
   }
 
   auto fit = _functions.find(node->id);
@@ -418,102 +416,7 @@ auto Interpreter::eval_call(const FunctionCall* node) -> ValuePtr {
   for (auto& a : node->exprs)
     args.push_back(eval(a.get()));
 
-  return call_function(fit->second, std::move(args), nullptr);
-}
-
-auto Interpreter::eval_method_call(const MethodCall* node) -> ValuePtr {
-  auto obj = eval(node->object.get());
-  if (obj->is_array()) {
-    auto& data = obj->as_array();
-    if (node->name== "insertar") {
-      if (node->args.size() != 1)
-        throw RuntimeError("insertar() espera 1 argumento");
-      data.push_back(eval(node->args[0].get()));
-      return make_null();
-    }
-    if (node->name== "insertar_en") {
-      if (node->args.size() != 2)
-        throw RuntimeError("insertar_en() espera 2 argumentos (indice, valor)");
-      auto idx_val = eval(node->args[0].get());
-      auto val     = eval(node->args[1].get());
-      if (!idx_val->is_int())
-        throw RuntimeError("insertar_en(): el indice debe ser un entero");
-      auto i  = idx_val->as_int();
-      auto sz = static_cast<int64_t>(data.size());
-      if (i < 0 || i > sz)
-        throw RuntimeError(std::format("insertar_en(): indice {} fuera de rango", idx_val->as_int()));
-      data.insert(data.begin() + i, std::move(val));
-      return make_null();
-    }
- 
-    if (node->name == "eliminar") {
-      if (node->args.size() != 1)
-        throw RuntimeError("eliminar() espera 1 argumento");
-      auto idx_val = eval(node->args[0].get());
-      if (!idx_val->is_int())
-        throw RuntimeError("eliminar(): el indice debe ser un entero");
-      auto i  = idx_val->as_int();
-      auto sz = static_cast<int64_t>(data.size());
-      if (i < 0 || i >= sz)
-        throw RuntimeError(std::format("eliminar(): indice {} fuera de rango", idx_val->as_int()));
-      data.erase(data.begin() + i);
-      return make_null();
-    }
-    if (node->name == "contiene") {
-      if (node->args.size() != 1)
-        throw RuntimeError("contiene() espera 1 argumento");
-      auto target = eval(node->args[0].get());
-      for (auto& el : data)
-        if (el->to_string() == target->to_string()) return make(true);
-      return make(false);
-    } 
-    if (node->name == "encuentra_index") {
-      if (node->args.size() != 1)
-        throw RuntimeError("contiene() espera 1 argumento");
-      auto target = eval(node->args[0].get());
-      for (int64_t i {0uz}; i < data.size(); i++) {
-        if (data.at(i)->to_string() == target->to_string())
-          return make(i);
-      }
-      return make(false);
-    }
-    throw RuntimeError(std::format("los arreglos no tienen metodo '{}'", node->name));
-  }
-  else if (obj->is_instance()) {
-    auto  inst = obj->as_instance();
-    auto  it   = inst->klass->methods.find(node->name);
-    if (it == inst->klass->methods.end())
-      throw RuntimeError(std::format("'{}' no tiene metodo '{}'",
-                                     inst->klass->name, node->name));
-    std::vector<ValuePtr> args;
-    args.reserve(node->args.size());
-    for (auto& a : node->args)
-      args.push_back(eval(a.get()));
-    return call_function(it->second, std::move(args), inst);
-  }
-  else if (obj->is_string()){
-    auto& data = obj->as_string();
-    if (node->name== "separar") {
-      if (node->args.size() != 1)
-        throw RuntimeError("separar() espera 1 argumento");
-
-      auto target = eval(node->args[0].get())->to_string();
-
-      std::vector<std::string> split{};
-      std::stringstream ss{data};
-      std::string item;
-      while (std::getline(ss, item, target.at(0)))
-        split.emplace_back(item);
-
-      std::vector<ValuePtr> items;
-      items.reserve(2);
-      for (std::string& s : split)
-        items.push_back(make(s));
-
-      return std::make_shared<Value>(std::move(items));
-    }
-  } 
-  throw RuntimeError(std::format("el tipo '{}' no soporta metodos", obj->to_string()));
+  return call_function(fit->second, args, nullptr);
 }
 
 auto Interpreter::eval_array(const ArrayDecl* node) -> ValuePtr {
@@ -524,7 +427,7 @@ auto Interpreter::eval_array(const ArrayDecl* node) -> ValuePtr {
   return std::make_shared<Value>(std::move(items));
 }
 
-auto Interpreter::call_function(const FunctionDecl* fn, std::vector<ValuePtr> args, InstancePtr self) -> ValuePtr {
+auto Interpreter::call_function(const FunctionDecl* fn, std::span<ValuePtr> args, InstancePtr self) -> ValuePtr {
   if (args.size() != fn->params.size())
     throw RuntimeError(std::format("'{}' espera {} argumento(s), obtuvo {}", fn->id.size(), fn->params.size(), args.size()));
   _env.push();
@@ -547,7 +450,7 @@ auto Interpreter::call_function(const FunctionDecl* fn, std::vector<ValuePtr> ar
 }
 
 
-auto Interpreter::instantiate(const std::string& class_name, std::vector<ValuePtr> args) -> ValuePtr {
+auto Interpreter::instantiate(const std::string& class_name, std::span<ValuePtr> args) -> ValuePtr {
   auto it = _classes.find(class_name);
   if (it == _classes.end())
     throw RuntimeError(std::format("clase '{}' no definida", class_name));
@@ -611,4 +514,58 @@ auto Interpreter::eval_index_expr(const IndexExpr* node) -> ValuePtr {
   }
 
   throw RuntimeError("solo se puede indexar array o string");
+}
+
+auto Interpreter::dispatch_native_method(std::span<const NativeMethodDesc> methods, ValuePtr self, const MethodCall* node) -> ValuePtr {
+  auto* method = find_builtin(methods, node->name);
+
+  if (!method)
+    throw RuntimeError("Invalido metodo");
+
+  if (!method->variadic &&
+    node->args.size() != method->arity)
+    throw RuntimeError("Argomentos invalido");
+
+  std::vector<ValuePtr> args;
+
+  args.reserve(node->args.size());
+
+  for (const auto& arg : node->args)
+    args.push_back(eval(arg.get()));
+
+  return method->fn(self, args);
+}
+
+auto Interpreter::eval_method_call(const MethodCall* node) -> ValuePtr {
+  auto obj = eval(node->object.get());
+
+  if (obj->is_array()) {
+    return dispatch_native_method(
+      ARRAY_METHODS,
+      obj,
+      node
+    );
+  }
+  else if (obj->is_string()) {
+    return dispatch_native_method(
+      STRING_METHODS,
+      obj,
+      node
+    );
+  }
+
+  else if (obj->is_instance()) {
+    auto  inst = obj->as_instance();
+    auto  it   = inst->klass->methods.find(node->name);
+    if (it == inst->klass->methods.end())
+      throw RuntimeError(std::format("'{}' no tiene metodo '{}'",
+                                     inst->klass->name, node->name));
+    std::vector<ValuePtr> args;
+    args.reserve(node->args.size());
+    for (auto& a : node->args)
+      args.push_back(eval(a.get()));
+    return call_function(it->second, args, inst);
+  } 
+
+  throw RuntimeError("Metodo Invalido");
 }

@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include "runtime_values.h"
 
 class Environment {
@@ -35,9 +34,9 @@ private:
   Environment _env{};
 
   std::unordered_map<std::string, std::shared_ptr<ClassDef>> _classes;
-  std::unordered_map<std::string, BuiltinFnImpl>_builtins;
+  //std::unordered_map<std::string, BuiltinFnImpl>_builtins;
   std::unordered_map<std::string, const FunctionDecl*> _functions;
-  auto call_builtin(const std::string& name, std::vector<ValuePtr> args) -> ValuePtr;
+  auto call_builtin(const std::string& name, std::span<ValuePtr> args) -> ValuePtr;
 
   auto exec_stmts(const StmtsPtr& stmts) ->   void;
   auto exec_stmt(const IAST* node) ->         void;
@@ -58,10 +57,12 @@ private:
   auto eval_call(const FunctionCall*) ->  ValuePtr;
   auto eval_array(const ArrayDecl*) ->    ValuePtr;
 
-  auto call_function(const FunctionDecl* fn, std::vector<ValuePtr> args, InstancePtr self) -> ValuePtr;
-  auto instantiate(const std::string& class_name, std::vector<ValuePtr> args = {}) -> ValuePtr;
+  auto call_function(const FunctionDecl* fn, std::span<ValuePtr> args, InstancePtr self) -> ValuePtr;
+  auto instantiate(const std::string& class_name, std::span<ValuePtr> args = {}) -> ValuePtr;
+
   auto resolve_member(const std::string& dotted) -> std::pair<InstancePtr, std::string>;
 
 
+  auto dispatch_native_method(std::span<const NativeMethodDesc> methods, ValuePtr self, const MethodCall* node) -> ValuePtr;
   static auto to_number(const ValuePtr& v, std::string_view op = "") -> std::pair<bool, double>;
 };

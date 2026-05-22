@@ -8,6 +8,7 @@
 #include "interpreter.h"
 #include "utilities.h"
 
+
 [[noreturn]] auto help_panel() -> void {
   std::println("--------------------------");
   std::println("Uso: ./olm -h");
@@ -17,11 +18,9 @@
   exit(EXIT_SUCCESS);
 }
 
-auto main(int argc, char** argv) -> int32_t {
-  if (argc < 2)
-    help_panel();
+static bool show_ast {};
 
-  bool show_ast {};
+auto parse_args(int argc, char** argv) -> void {
   for (auto i {1uz}; i < argc; i++) {
     std::string_view str = argv[i];
 
@@ -30,8 +29,15 @@ auto main(int argc, char** argv) -> int32_t {
     if ("--ast" == str)
       show_ast = true;
   }
+}
 
-  auto opt = read_file(argv[1]);
+auto main(int argc, char** argv) -> int32_t {
+  if (argc < 2)
+    help_panel();
+  parse_args(argc, argv);
+
+  auto opt = read_file(std::move(argv[1]));
+
   if (!opt.has_value()) {
     std::println(stderr, "Error: no se pudo abrir el archivo '{}'", argv[1]);
     return EXIT_FAILURE;
@@ -45,6 +51,7 @@ auto main(int argc, char** argv) -> int32_t {
     std::println(stderr, "{}", e.what());
     return EXIT_FAILURE;
   }
+
   if (show_ast) {
     debug_see_nodetype(ast);
     return EXIT_SUCCESS;
@@ -56,9 +63,7 @@ auto main(int argc, char** argv) -> int32_t {
   } catch(const SemanticException& e) {
     std::println(stderr, "{}", e.what());
     return EXIT_FAILURE;
-  }
-
-  try {
+  } try {
     Interpreter interp;
     interp.run(ast);
   } catch (const RuntimeError& e) {
@@ -68,3 +73,4 @@ auto main(int argc, char** argv) -> int32_t {
 
   return EXIT_SUCCESS;
 }
+

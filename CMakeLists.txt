@@ -21,7 +21,7 @@ target_sources(headerfiles
     src/parser.cpp
     src/error_manager.cpp
     src/runtime_values.cpp
-    src/builtins.cpp
+    src/std.cpp
     src/sema.cpp
     src/interpreter.cpp
   PUBLIC
@@ -35,6 +35,7 @@ target_sources(headerfiles
     src/parser.h
     src/error_manager.h
     src/runtime_values.h
+    src/std.h
     src/builtins.h
     src/sema.h
     src/interpreter.h

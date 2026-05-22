@@ -1,8 +1,10 @@
 #include "sema.h"
 #include <cstddef>
 #include <cassert>
+#include <string_view>
 #include "builtins.h"
 #include "nodes.h"
+#include "std.h"
 #include "utilities.h"
 
 
@@ -11,7 +13,7 @@ auto Scope::define(Symbol sym) -> void {
 }
 
 auto Scope::lookup(std::string_view name) const -> std::optional<Symbol> {
-  if (auto it = _syms.find(std::string(name)); it != _syms.end())
+  if (auto it = _syms.find(name); it != _syms.end())
     return it->second;
   return std::nullopt;
 }
@@ -26,7 +28,7 @@ auto Sema::pop_scope()  -> void { assert(!_scopes.empty()); _scopes.pop_back(); 
 auto Sema::define(Symbol sym) -> void {
   assert(!_scopes.empty());
   if (_scopes.back().contains(sym.name)) {
-    error(SemanticErrorCode::REDEFINITION, sym.location, sym.name);
+    error(SemanticErrorCode::REDEFINITION, sym.location, sym.name.data());
   } else {
     _scopes.back().define(std::move(sym));
   }
@@ -51,9 +53,9 @@ auto Sema::analyze(const StmtsPtr& program) -> void {
 
   push_scope(); // global scope
 
-  for (const auto& b : Builtins::INFO) {
+  for (const auto& b : FREE_FUNCTIONS) {
     _scopes.back().define({
-      .name     = b.name,
+      .name     = b.name.data(),
       .kind     = SymbolKind::FUNCTION,
       .arity    = b.arity,
       .defined  = true,
@@ -286,7 +288,7 @@ auto Sema::check_func_call(const FunctionCall* node) -> void {
   } else if (sym->kind != SymbolKind::FUNCTION)
     error(SemanticErrorCode::NOT_A_FUNC, loc, node->id);
   else {
-    auto* desc = Builtins::is_builtin(node->id);
+    auto* desc = find_builtin(FREE_FUNCTIONS, node->id);
     bool variadic = desc and desc->variadic;
     if (!variadic and node->exprs.size() != sym->arity)
       error(SemanticErrorCode::FUNC_ARITY_MISMATCH, loc, node->id, sym->arity, node->exprs.size());

@@ -12,7 +12,7 @@
 enum SymbolKind { VARIABLE, CONSTANT, FUNCTION, CLASS, PARAMETER };
 
 struct Symbol {
-  std::string   name{};
+  std::string_view   name{};
   SymbolKind    kind{};
   std::size_t   arity{0};       // meaningful for function(...)
   std::size_t   ctor_arity{0};  // arity of 'crear' constructor (CLASS only)
@@ -27,7 +27,7 @@ public:
   auto lookup(std::string_view name) const         -> std::optional<Symbol>;
   auto contains(std::string_view name) const       -> bool;
 private:
-  std::unordered_map<std::string, Symbol> _syms;
+  std::unordered_map<std::string_view, Symbol> _syms;
 };
 
 class Sema final {

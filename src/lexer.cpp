@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <format>
 #include <stdexcept>
 #include <string>
 #include <flat_map>
@@ -27,14 +28,19 @@ const std::flat_map<std::string_view, TokenType> keywords {
   {"y",         TokenType::AND},
   {"continuar", TokenType::CONTINUE},
 };
+Lexer::Lexer(std::string_view const source) {
+  _source = source;
+  _loc.col = 1;
+  _loc.row = 0;
+}
 
 auto Lexer::next() -> Token {
   while(!at_end()){
     char chr = advance();
     while(std::isspace(chr)){
       if(chr == '\n') {
-        _col++;
-        _row = 0;
+        _loc.col++;
+        _loc.row = 0;
       }
       chr = advance();
     }
@@ -54,101 +60,75 @@ auto Lexer::next() -> Token {
       case '=': return make_char(EQUAL, chr);
       case ':': return make_char(COLON, chr);
       case '-':{
-        if(get_char_from_idx() != '-')
+        if(peek() != '-')
           return make_char(MINUS, chr);
-        else {
-          while(get_char_from_idx() != '\n' && !at_end())
+        while(peek() != '\n' && !at_end())
           advance();
-        }
         break;
       }
       case '>':
-        if(get_char_from_idx() != '=')
+        if(peek() != '=')
           return make_char(GREATER_THAN, chr);
         else{
           advance();
-          return {GREATER_OR_EQUAL, ">=", {_row - 2, _col}};
+          return {GREATER_OR_EQUAL, ">=", {_loc.row - 2, _loc.col}};
         }
       case '<':
-        if(get_char_from_idx() != '=')
+        if(peek() != '=')
           return make_char(LESSER_THAN, chr);
         else{
           advance();
-          return {LESSER_OR_EQUAL, "<=", {_row - 2, _col}};
+          return {LESSER_OR_EQUAL, "<=", {_loc.row - 2, _loc.col}};
         }
-        break;
       case '!':
-        if(get_char_from_idx() == '='){
+        if(peek() == '='){
           advance();
-          return {NOT_EQUAL, "!=", {_row - 2, _col}};
+          return {NOT_EQUAL, "!=", {_loc.row - 2, _loc.col}};
         }else
           return make_char(BANG, chr);
       case '\'':
       case '\"':{
         std::size_t start = _idx;
-        while(get_char_from_idx() != chr) { // AKA " or '
-          if(get_char_from_idx(-1) == '\0')
-            throw std::runtime_error("SyntaxError:unterminated string literal, line: " + std::to_string(_row) + " columna " + std::to_string(_col));
+        while(peek() != chr) { // AKA " or '
+          if(peek(-1) == '\0')
+            throw std::runtime_error(std::format("[{}] cadena sin terminar", _loc.to_string()));
           advance();
         }
         advance(); // Skip ' or ""
         auto str = _source.substr(start, _idx - start - 1);
 
-        return {STRING, std::move(str), {_row - str.size(), _col}};
+        return {STRING, std::move(str), {_loc.row - str.size(), _loc.col}};
       }
       case '$':
         advance();
-        while (get_char_from_idx() != '$'){
+        while (peek() != '$'){
           if (at_end())
-            throw std::runtime_error("unterminated comment block, expected $");
+            throw std::runtime_error(std::format("[{}] bloque de comentario sin terminar, se esperaba '$'", _loc.to_string()));
           advance();
         }
         advance(); // Skip '$'
         break;
     }
-    if(std::isdigit(chr)){
-      auto number_type = TokenType::INTEGER;
-      std::size_t start = _idx - 1;
-
-      while(std::isdigit(get_char_from_idx()))
-        advance();
-
-      if(get_char_from_idx() == '.' && std::isdigit(get_char_from_idx(1))){
-        advance();
-        while(std::isdigit(get_char_from_idx())) advance();
-        number_type = TokenType::FLOAT;
-      }
-      auto str = _source.substr(start, _idx - start);
-      return {number_type, str, {_row - str.size(), _col}};
-    }
-    else if(std::isalpha(chr) || chr == '_'){
-      std::size_t start = _idx - 1;
-      while(std::isalnum(get_char_from_idx()) || get_char_from_idx() == '_')
-        advance();
-
-      std::string_view str{_source.data() + start, _idx - start };
-      auto row = _row - str.size();
-
-      if (auto it = keywords.find(str); it != keywords.end()) 
-        return {it->second, str, {row, _col}};
-      return {TokenType::IDENTIFIER, str, {row, _col}};
-    }
+    if(std::isdigit(chr))
+      return get_number();
+    else if(std::isalpha(chr) || chr == '_')
+      return get_str();
   }
   return {TokenType::END_OF_FILE, ""};
 }
 
-auto Lexer::get_char_from_idx(int steps) -> char {
-  if(_idx + steps > _source.size())
+auto Lexer::peek(int idx) -> char {
+  if(_idx + idx > _source.size())
     return '\0';
-  return _source[_idx + steps];
+  return _source[_idx + idx];
 }
 
 auto Lexer::advance() -> char {
   if(at_end())
     return '\0';
-  auto chr = get_char_from_idx();
+  auto chr = peek();
   _idx++;
-  _row++;
+  _loc.row++;
   return chr;
 }
 
@@ -157,5 +137,36 @@ auto Lexer::at_end() const -> bool {
 }
 
 auto Lexer::make_char(TokenType ttype, char chr) -> Token {
-  return {ttype, std::string(1, chr), {_row - 1, _col}};
+  return {ttype, std::string(1, chr), {_loc.row - 1, _loc.col}};
+}
+
+auto Lexer::get_number() -> Token {
+  auto number_type = TokenType::INTEGER;
+  std::size_t start = _idx - 1;
+
+  while(std::isdigit(peek()))
+    advance();
+
+  if(peek() == '.' ){
+    if(!std::isdigit(peek(1)))
+      throw std::runtime_error(std::format("[{}]", _loc.to_string()));
+    advance();
+    while(std::isdigit(peek())) advance();
+    number_type = TokenType::FLOAT;
+  }
+  auto str = _source.substr(start, _idx - start);
+  return {number_type, str, {_loc.row - str.size(), _loc.col}};
+}
+
+auto Lexer::get_str() -> Token {
+  std::size_t start = _idx - 1;
+  while(std::isalnum(peek()) || peek() == '_')
+    advance();
+
+  std::string_view str{_source.data() + start, _idx - start };
+  auto row = _loc.row - str.size();
+
+  if (auto it = keywords.find(str); it != keywords.end()) 
+    return {it->second, str, {row, _loc.col}};
+  return {TokenType::IDENTIFIER, str, {row, _loc.col}};
 }

@@ -61,3 +61,4 @@ auto ErrorManager::errors() const -> const std::vector<SemanticError>& {
 }
 
 auto ErrorManager::clear() -> void { _errors.clear(); }
+
