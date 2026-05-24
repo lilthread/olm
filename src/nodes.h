@@ -9,7 +9,7 @@
 enum class NodeType {
   CLASSDECL, FUNCTIONDECL, VARIABLEDECL, ASSIGNMENT, LITERAL,
   UNARYOP, BINARYOP, WHILESTATEMENT, IFSTATEMENT, METHODCALL, INDEXEXPR,
-  RETURNSTATEMENT, FUNCTIONCALL, ARRAYDECL
+  RETURNSTATEMENT, FUNCTIONCALL, ARRAYDECL, CONTINUESTMT
 };
 
 struct IAST {
@@ -57,8 +57,6 @@ struct Assignment final : NodeImpl<NodeType::ASSIGNMENT> {
   std::string id{};
   ExprPtr  target{};
   ExprPtr expr{};
-
-  //Assignment(std::string id, ExprPtr expr) : id(std::move(id)), expr(std::move(expr)){}
   Assignment(ExprPtr id, ExprPtr expr)
   : target(std::move(id)), expr(std::move(expr)){}
 
@@ -121,6 +119,9 @@ struct ReturnStatement final : NodeImpl<NodeType::RETURNSTATEMENT> {
   ReturnStatement(ExprPtr expr)
   : expr(std::move(expr)){}
 };
+ 
+struct ContinueStatement final : NodeImpl<NodeType::CONTINUESTMT> { ContinueStatement() = default; };
+ 
 
 struct FunctionCall final : NodeImpl<NodeType::FUNCTIONCALL> {
   std::string id{};
@@ -145,7 +146,7 @@ struct ArrayDecl final : NodeImpl<NodeType::ARRAYDECL> {
 };
 
 
-struct IndexExpr : NodeImpl<NodeType::INDEXEXPR> {
+struct IndexExpr final : NodeImpl<NodeType::INDEXEXPR> {
   ExprPtr object;
   ExprPtr index;
 

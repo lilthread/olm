@@ -11,6 +11,7 @@
 #include "runtime_values.h"
 #include "error_manager.h"
 #include "std.h"
+using enum NodeType;
 
 auto Environment::push() -> void { _scopes.emplace_back(); }
 auto Environment::pop()  -> void { assert(!_scopes.empty()); _scopes.pop_back(); }
@@ -56,15 +57,16 @@ auto Interpreter::exec_stmt(const IAST* node) -> void {
   if (!node)
     return;
   switch (node->node_type) {
-    case NodeType::VARIABLEDECL:    exec_var_decl  (static_cast<const VariableDecl*>  (node)); break;
-    case NodeType::FUNCTIONDECL:    exec_func_decl (static_cast<const FunctionDecl*>  (node)); break;
-    case NodeType::CLASSDECL:       exec_class_decl(static_cast<const ClassDecl*>     (node)); break;
-    case NodeType::ASSIGNMENT:      exec_assignment(static_cast<const Assignment*>    (node)); break;
-    case NodeType::IFSTATEMENT:     exec_if        (static_cast<const IfStatement*>   (node)); break;
-    case NodeType::WHILESTATEMENT:  exec_while     (static_cast<const WhileStatement*>(node)); break;
-    case NodeType::RETURNSTATEMENT: exec_return    (static_cast<const ReturnStatement*>(node));break;
-    case NodeType::FUNCTIONCALL:    eval_call      (static_cast<const FunctionCall*>  (node)); break;
-    case NodeType::METHODCALL:      eval_method_call(static_cast<const MethodCall*>    (node)); break;
+    case VARIABLEDECL:    exec_var_decl  (static_cast<const VariableDecl*>  (node)); break;
+    case FUNCTIONDECL:    exec_func_decl (static_cast<const FunctionDecl*>  (node)); break;
+    case CLASSDECL:       exec_class_decl(static_cast<const ClassDecl*>     (node)); break;
+    case ASSIGNMENT:      exec_assignment(static_cast<const Assignment*>    (node)); break;
+    case IFSTATEMENT:     exec_if        (static_cast<const IfStatement*>   (node)); break;
+    case WHILESTATEMENT:  exec_while     (static_cast<const WhileStatement*>(node)); break;
+    case RETURNSTATEMENT: exec_return    (static_cast<const ReturnStatement*>(node));break;
+    case CONTINUESTMT:    exec_continue  (static_cast<const ContinueStatement*>(node));break;
+    case FUNCTIONCALL:    eval_call      (static_cast<const FunctionCall*>  (node)); break;
+    case METHODCALL:      eval_method_call(static_cast<const MethodCall*>    (node)); break;
     default:
       throw RuntimeError("nodo de declaracion desconocido");
   }
@@ -86,10 +88,10 @@ auto Interpreter::exec_class_decl(const ClassDecl* node) -> void {
   def->name = node->id;
 
   for (auto& m : node->members) {
-    if (m->node_type == NodeType::VARIABLEDECL) {
+    if (m->node_type == VARIABLEDECL) {
       auto* vd = static_cast<const VariableDecl*>(m.get());
       def->fields.try_emplace(vd->id, vd->expr.get());
-    } else if (m->node_type == NodeType::FUNCTIONDECL) {
+    } else if (m->node_type == FUNCTIONDECL) {
       auto* fn = static_cast<const FunctionDecl*>(m.get());
       def->methods[fn->id] = fn;
     }
@@ -157,7 +159,9 @@ auto Interpreter::exec_if(const IfStatement* node) -> void {
 auto Interpreter::exec_while(const WhileStatement* node) -> void {
   while (eval(node->condition.get())->truthy()) {
     _env.push();
-    exec_stmts(node->body);
+    try {
+      exec_stmts(node->body);
+    } catch (ContinueSignal&){}
     _env.pop();
   }
 }
@@ -166,17 +170,21 @@ auto Interpreter::exec_return(const ReturnStatement* node) -> void {
   auto val = eval(node->expr.get());
   throw ReturnSignal{std::move(val)};
 }
+ 
+auto Interpreter::exec_continue(const ContinueStatement*) -> void {
+  throw ContinueSignal{};
+}
 
 auto Interpreter::eval(const IAST* node) -> ValuePtr {
   if (!node) return make_null();
   switch (node->node_type) {
-    case NodeType::LITERAL:      return eval_literal(static_cast<const Literal*>     (node));
-    case NodeType::BINARYOP:     return eval_binary (static_cast<const BinaryOp*>    (node));
-    case NodeType::UNARYOP:      return eval_unary  (static_cast<const UnaryOp*>     (node));
-    case NodeType::FUNCTIONCALL: return eval_call   (static_cast<const FunctionCall*>(node));
-    case NodeType::ARRAYDECL:    return eval_array  (static_cast<const ArrayDecl*>   (node));
-    case NodeType::METHODCALL:   return eval_method_call(static_cast<const MethodCall*> (node));
-    case NodeType::INDEXEXPR:    return eval_index_expr(static_cast<const IndexExpr*>(node));
+    case LITERAL:      return eval_literal(static_cast<const Literal*>     (node));
+    case BINARYOP:     return eval_binary (static_cast<const BinaryOp*>    (node));
+    case UNARYOP:      return eval_unary  (static_cast<const UnaryOp*>     (node));
+    case FUNCTIONCALL: return eval_call   (static_cast<const FunctionCall*>(node));
+    case ARRAYDECL:    return eval_array  (static_cast<const ArrayDecl*>   (node));
+    case METHODCALL:   return eval_method_call(static_cast<const MethodCall*> (node));
+    case INDEXEXPR:    return eval_index_expr(static_cast<const IndexExpr*>(node));
     default:
       throw RuntimeError("nodo de expresion desconocido");
   }
@@ -522,9 +530,8 @@ auto Interpreter::dispatch_native_method(std::span<const NativeMethodDesc> metho
   if (!method)
     throw RuntimeError("Invalido metodo");
 
-  if (!method->variadic &&
-    node->args.size() != method->arity)
-    throw RuntimeError("Argomentos invalido");
+  if (!method->variadic && node->args.size() != method->arity)
+    throw RuntimeError("argumento(s) invalido(s)");
 
   std::vector<ValuePtr> args;
 
@@ -545,8 +552,7 @@ auto Interpreter::eval_method_call(const MethodCall* node) -> ValuePtr {
       obj,
       node
     );
-  }
-  else if (obj->is_string()) {
+  } else if (obj->is_string()) {
     return dispatch_native_method(
       STRING_METHODS,
       obj,

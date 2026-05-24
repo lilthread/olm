@@ -172,7 +172,7 @@ TEST(Interp, FloatAdd) {
   auto v = get_result("func resultado() devolver 1.5 + 1.5 fin");
   ASSERT_NE(v, nullptr);
   EXPECT_TRUE(v->is_float());
-  EXPECT_DOUBLE_EQ(v->as_float(), 3.0);
+  EXPECT_DOUBLE_EQ(v->as_float(), 3);
 }
 
 TEST(Interp, IntFloatMixed) {
@@ -633,4 +633,96 @@ TEST(Interp, LhsArrayAssignment) {
     "func resultado() devolver array[0][1] fin"
   );
   EXPECT_STR(v, "#");
+}
+
+TEST(Interp, RoundNumber) {
+  auto v = get_result(
+    "func resultado() devolver redondear(0.6) fin"
+  );
+  EXPECT_FLOAT(v, 1);
+}
+
+TEST(Array, Insertar) {
+  auto v = get_result(
+    "var x se []"
+    "x.insertar(10)"
+    "x.insertar('hello')"
+
+    "func resultado() devolver x fin"
+  );
+  EXPECT_ARRAY(v, "[10, hello]");
+}
+
+TEST(Array, Eliminar) {
+  auto v = get_result(
+    "var x se [0.05, 10, 30, 'hello']"
+    "x.eliminar(0)"
+    "func resultado() devolver x fin"
+  );
+  EXPECT_ARRAY(v, "[10, 30, hello]");
+}
+
+TEST(Array, Contiene) {
+  auto v = get_result(
+    "var id se 'random'"
+    "var x se [0, 0, 3, id]"
+    "func resultado() devolver x.contiene('random') fin"
+  );
+  EXPECT_TRUE(v);
+}
+
+TEST(Array, InsertarEn) {
+  auto v = get_result(
+    "var id se 'target'"
+    "var x se [0, 0, 3]"
+    "x.insertar_en(1, id)"
+    "func resultado() devolver x.encuentra_index(id) fin"
+  );
+  EXPECT_INT(v, 1);
+}
+
+
+TEST(Continuar, ReturnStillWorksWithContinuar) {
+  auto v = get_result(
+    "func f()\n"
+    "  var i se 0\n"
+    "  mientras i < 10 haz\n"
+    "    i se i + 1\n"
+    "    si i = 5 haz devolver i fin\n"
+    "    continuar\n"
+    "  fin\n"
+    "  devolver 0\n"
+    "fin\n"
+    "func resultado() devolver f() fin"
+  );
+  EXPECT_INT(v, 5);
+}
+
+TEST(Continuar, ScopeCleanedUpOnContinue) {
+  run_ok(
+    "var i se 0\n"
+    "mientras i < 3 haz\n"
+    "  i se i + 1\n"
+    "  var tmp se i\n"
+    "  continuar\n"
+    "fin"
+  );
+}
+
+TEST(Continuar, InsideFuncLoop) {
+  auto v = get_result(
+    "func sumar_pares(n)\n"
+    "  var sum se 0\n"
+    "  var i se 0\n"
+    "  mientras i < n haz\n"
+    "    i se i + 1\n"
+    "    si i = 1 o i = 3 o i = 5 haz continuar fin\n"
+    "    sum se sum + i\n"
+    "  fin\n"
+    "  devolver sum\n"
+    "fin\n"
+    "func resultado() devolver sumar_pares(6) fin" // 6
+  );
+  // 2+4+6 = 12
+  EXPECT_INT(v, 12);
 }

@@ -58,6 +58,7 @@ auto Parser::parse_statement() -> ExprPtr {
     case IF:       advance(); return parse_if_statement();
     case WHILE:    advance(); return parse_while_statement();
     case RETURN:   advance(); return parse_return_statement();
+    case CONTINUE: advance(); return std::make_unique<ContinueStatement>();
     default:                  return parse_assignment_or_call();
   }
 }

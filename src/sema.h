@@ -59,6 +59,7 @@ private:
   auto check_if(const IfStatement*) -> void;
   auto check_while(const WhileStatement*) -> void;
   auto check_return(const ReturnStatement*) -> void;
+  auto check_continue(const ContinueStatement* node) -> void;
   auto check_func_call(const FunctionCall*) -> void;
   auto check_binary(const BinaryOp*) -> void;
   auto check_unary(const UnaryOp*) -> void;

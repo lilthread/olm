@@ -81,6 +81,7 @@ auto Sema::check_stmt(const IAST* node) -> void {
     case NodeType::IFSTATEMENT:    check_if         (static_cast<const IfStatement*>   (node)); break;
     case NodeType::WHILESTATEMENT: check_while      (static_cast<const WhileStatement*>(node)); break;
     case NodeType::RETURNSTATEMENT:check_return     (static_cast<const ReturnStatement*>(node));break;
+    case NodeType::CONTINUESTMT:   check_continue   (static_cast<const ContinueStatement*>(node));break;
     case NodeType::FUNCTIONCALL:   check_func_call  (static_cast<const FunctionCall*>  (node)); break;
     case NodeType::METHODCALL:     check_method_call(static_cast<const MethodCall*>    (node)); break;
     default:                       check_expr(node); break;
@@ -140,7 +141,7 @@ auto Sema::check_func_decl(const FunctionDecl* node) -> void {
 }
 
 auto Sema::check_class_decl(const ClassDecl* node) -> void {
-  bool   has_ctor   = false;
+  bool has_ctor {};
   std::size_t ctor_arity = 0;
   for (auto& m : node->members) {
     if (m->node_type == NodeType::FUNCTIONDECL) {
@@ -248,6 +249,11 @@ auto Sema::check_return(const ReturnStatement* node) -> void {
     error(SemanticErrorCode::RET_OUTSIDE_FUNC, node->loc);
   }
   check_expr(node->expr.get());
+}
+
+auto Sema::check_continue(const ContinueStatement* node) -> void {
+  if (_loop_depth == 0)
+    error(SemanticErrorCode::CONTINUE_OUTSIDE_LOOP, node->loc);
 }
 
 auto Sema::check_method_call(const MethodCall* node) -> void {

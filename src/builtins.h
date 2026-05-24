@@ -1,5 +1,6 @@
 #pragma once
 #include "std.h"
+#include "utilities.h"
 
 static constexpr NativeMethodDesc FREE_FUNCTIONS[] {
   { "escribe", 1, true, escribe},
@@ -12,17 +13,18 @@ static constexpr NativeMethodDesc FREE_FUNCTIONS[] {
   { "longitud", 1, false, longitud},
   // MATH
   { "abs", 1, false, std_abs},
-  { "max", 2, false, std_max},
-  { "min", 2, false, std_min},
   { "pow", 2, false, std_pow},
-  { "sqrt", 1, false, std_sqrt},
   { "floor", 1, false, std_floor},
   { "ceil", 1, false, std_ceil},
-  { "round", 1, false, std_round},
+  { "raiz", 1, false, std_sqrt},
+  { "redondear", 1, false, std_round},
+  { "presicion", 1, false, std_round},
+  { "max", 2, false, std_max},
+  { "min", 2, false, std_min},
 };
 
-static inline auto is_builtin(std::string_view name) -> bool {
-  for (auto i{0}; i < 10; i++) {
+constexpr static inline auto is_builtin(std::string_view name) -> bool {
+  for (auto i{0uz}; i < countof(FREE_FUNCTIONS); i++) {
     if (name == FREE_FUNCTIONS[i].name)
       return true;
   }

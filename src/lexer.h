@@ -16,5 +16,5 @@ private:
   auto peek(int idx = 0)       -> char;
   auto make_char(TokenType ttype, char chr) -> Token;
   auto get_number() -> Token;
-  auto get_str()    -> Token;
+  auto get_str() -> Token;
 };

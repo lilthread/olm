@@ -616,17 +616,6 @@ TEST(Sema, CtorInWhileLoop) {
   );
 }
 
-/*TEST(Sema, Overloaded) {
-  analyze_ok(
-    "clase C\n"
-    "  func crear(a) fin\n"
-    "  func crear(a, b) fin\n"
-    "fin\n"
-    "var a se C(0)\n"
-    "var b se C(0,0)\n"
-  );
-}
-*/
 TEST(Sema, InnerCtor) {
   analyze_ok(
     "clase C\n"

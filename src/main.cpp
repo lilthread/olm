@@ -8,6 +8,7 @@
 #include "interpreter.h"
 #include "utilities.h"
 
+static bool show_ast {};
 
 [[noreturn]] auto help_panel() -> void {
   std::println("--------------------------");
@@ -18,10 +19,8 @@
   exit(EXIT_SUCCESS);
 }
 
-static bool show_ast {};
-
-auto parse_args(int argc, char** argv) -> void {
-  for (auto i {1uz}; i < argc; i++) {
+constexpr static auto parse_args(int argc, char** argv) -> void {
+  for (int i {1uz}; i < argc; i++) {
     std::string_view str = argv[i];
 
     if ("-h" == str)
@@ -52,7 +51,7 @@ auto main(int argc, char** argv) -> int32_t {
     return EXIT_FAILURE;
   }
 
-  if (show_ast) {
+  if (show_ast) [[unlikely]] {
     debug_see_nodetype(ast);
     return EXIT_SUCCESS;
   }

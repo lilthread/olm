@@ -11,7 +11,8 @@ add_executable(olm src/main.cpp)
 add_library(headerfiles STATIC)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 
-add_compile_options(-Wall -Wextra -Werror -O3)
+add_compile_options(-Wall -Wextra -Werror -O3 )
+
 target_include_directories(headerfiles PUBLIC src)
 target_sources(headerfiles
   PRIVATE
@@ -46,6 +47,9 @@ target_link_libraries(olm
   PRIVATE
     headerfiles
 )
+
+target_compile_options(olm PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
+target_link_options(olm PRIVATE -fsanitize=address)
 
 # GTEST
 include(FetchContent)

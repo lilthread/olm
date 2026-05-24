@@ -66,21 +66,17 @@ auto Lexer::next() -> Token {
           advance();
         break;
       }
-      case '>':
+      case '>':{
         if(peek() != '=')
           return make_char(GREATER_THAN, chr);
-        else{
-          advance();
-          return {GREATER_OR_EQUAL, ">=", {_loc.row - 2, _loc.col}};
-        }
-      case '<':
+        advance();
+        return {GREATER_OR_EQUAL, ">=", {_loc.row - 2, _loc.col}};
+      }case '<':{
         if(peek() != '=')
           return make_char(LESSER_THAN, chr);
-        else{
-          advance();
-          return {LESSER_OR_EQUAL, "<=", {_loc.row - 2, _loc.col}};
-        }
-      case '!':
+        advance();
+        return {LESSER_OR_EQUAL, "<=", {_loc.row - 2, _loc.col}};
+      }case '!':
         if(peek() == '='){
           advance();
           return {NOT_EQUAL, "!=", {_loc.row - 2, _loc.col}};

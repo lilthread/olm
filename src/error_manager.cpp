@@ -33,17 +33,18 @@ auto SemanticError::message() const -> std::string {
       return std::format("'{}' no es una funcion", subject);
     case INVALID_ASSIGN_TARGET:
       return std::format("asignacion invalida: '{}' ", subject);
+    case  CONTINUE_OUTSIDE_LOOP:
+      return "'continuar' usado fuera de un bucle";
   }
   return "error semantico desconocido";
 }
 
 auto SemanticError::to_string() const -> std::string {
-  if (location == SourceLocation{}){
+  if (location.is_invalid_position()) {
     return std::format("{}", message());
   }
   return std::format("[{}] {}", location.to_string(), message());
 }
-
 
 auto ErrorManager::emit(SemanticError err) -> void {
   _errors.push_back(std::move(err));

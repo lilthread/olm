@@ -79,3 +79,8 @@ struct Instance final {
   std::shared_ptr<ClassDef> klass;
   std::flat_map<std::string, ValuePtr> fields;
 };
+
+
+struct ReturnSignal final { ValuePtr value; };
+
+struct ContinueSignal final {};

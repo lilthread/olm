@@ -1,5 +1,5 @@
 #pragma once
-#include "builtins.h"
+#include "std.h"
 #include "nodes.h"
 #include <memory>
 #include <string>
@@ -22,9 +22,6 @@ private:
   std::vector<std::unordered_map<std::string, ValuePtr>> _scopes;
 };
 
-struct ReturnSignal {
-  ValuePtr value;
-};
 
 class Interpreter final {
 public:
@@ -34,10 +31,9 @@ private:
   Environment _env{};
 
   std::unordered_map<std::string, std::shared_ptr<ClassDef>> _classes;
-  //std::unordered_map<std::string, BuiltinFnImpl>_builtins;
   std::unordered_map<std::string, const FunctionDecl*> _functions;
-  auto call_builtin(const std::string& name, std::span<ValuePtr> args) -> ValuePtr;
 
+  auto call_builtin(const std::string& name, std::span<ValuePtr> args) -> ValuePtr;
   auto exec_stmts(const StmtsPtr& stmts) ->   void;
   auto exec_stmt(const IAST* node) ->         void;
   auto exec_var_decl(const VariableDecl*)  -> void;
@@ -47,6 +43,7 @@ private:
   auto exec_if(const IfStatement*) ->         void;
   auto exec_while(const WhileStatement*) ->   void;
   auto exec_return(const ReturnStatement*) -> void;
+  auto exec_continue(const ContinueStatement*) -> void;
   auto eval(const IAST* node) ->          ValuePtr;
   auto eval_literal(const Literal*) ->    ValuePtr;
   auto eval_binary(const BinaryOp*) ->    ValuePtr;

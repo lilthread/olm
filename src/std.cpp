@@ -1,25 +1,57 @@
 #include "std.h"
 #include "error_manager.h"
+#include "runtime_values.h"
+#include <cstdint>
 #include <print>
 #include <string>
 #include <iostream>
 #include <random>
-#include <iomanip>
 
 // Helper
-static auto to_double(const ValuePtr& v) -> double {
+namespace {
+auto to_double(const ValuePtr& v) -> double {
   if (v->is_float())
     return v->as_float();
-
-  if (v->is_int())
+  else if (v->is_int())
     return static_cast<double>(v->as_int());
 
   throw RuntimeError("valor no numerico");
 }
 
+auto to_int(const ValuePtr& v) -> int64_t {
+  if (v->is_float())
+    return static_cast<int64_t>(v->as_float());
+  else if (v->is_int())
+    return v->as_int();
 
+  throw RuntimeError("valor no numerico");
+}
+
+auto is_number(const ValuePtr& v) {
+  return v->is_int() || v->is_float();
+};
+
+template<class... V> requires ((std::same_as<V, ValuePtr>) && ...)
+auto any_float(const V&... v) -> bool {
+  return ((v->is_float()) || ... || false);
+}
+
+/*auto any_float(std::span<const ValuePtr> values) -> bool {
+  return std::ranges::any_of(values, [](const ValuePtr& v) {
+    return v->is_float();
+  });
+}*/
+}
+
+auto find_builtin(std::span<const NativeMethodDesc> methods, std::string_view name) -> const NativeMethodDesc* {
+  for (const auto& method : methods) {
+    if (method.name == name)
+      return &method;
+  }
+  return nullptr;
+}
 auto escribe(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  for (int64_t i{0uz}; i < args.size(); i++) {
+  for (auto i{0uz}; i < args.size(); i++) {
     std::print("{}", args[i]->to_string());
     if (i + 1 < args.size())
       std::print(" ");
@@ -35,51 +67,51 @@ auto leer(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
 }
 
 auto aleatorio(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-    auto is_number = [](const ValuePtr& v) {
-      return v->is_int() || v->is_float();
-    };
+  if (!is_number(args[0]) || !is_number(args[1]))
+    throw RuntimeError("aleatorio solo acepta numeros");
 
-    if (!is_number(args[0]) || !is_number(args[1]))
-      throw RuntimeError("aleatorio solo acepta numeros");
+  static std::mt19937 gen(std::random_device{}());
 
-    static std::mt19937 gen(std::random_device{}());
+  if (any_float(args[0], args[1])) {
+    double begin = to_double(args[0]);
+    double end   = to_double(args[1]);
 
-    if (args[0]->is_float() || args[1]->is_float()) {
-      double begin = to_double(args[0]);
-      double end   = to_double(args[1]);
-
-      std::uniform_real_distribution<double> dist(begin, end);
-
-      return make(dist(gen));
-    }
-    int64_t begin = args[0]->as_int();
-    int64_t end   = args[1]->as_int();
-
-    std::uniform_int_distribution<int64_t> dist(begin, end);
+    std::uniform_real_distribution<double> dist(begin, end);
 
     return make(dist(gen));
+  }
+  int64_t begin = args[0]->as_int();
+  int64_t end   = args[1]->as_int();
+
+  std::uniform_int_distribution<int64_t> dist(begin, end);
+
+  return make(dist(gen));
 }
 
 auto entero(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  auto str = args[0]->as_string();
-  return make(static_cast<int64_t>(std::stoi(str)));
+  auto x = args[0];
+  if (x->is_array())
+    throw RuntimeError("No se puede convertir un array a numero");
+  else if (x->is_string()) {
+    auto str = args[0]->as_string();
+    return make(static_cast<int64_t>(std::stoi(str)));
+  } 
+  return make(to_int(x));
 }
 
 auto decimal(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  auto str = args[0]->as_string();
-  return make(std::stod(str));
+  auto x = args[0];
+  if (x->is_array())
+    throw RuntimeError("No se puede convertir un array a numero");
+  else if (x->is_string()) {
+    auto str = args[0]->as_string();
+    return make(std::stod(str));
+  } 
+  return make(to_double(x));
 }
 
 auto cadena(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-    auto v = args[0];
-    if (v->is_int()){
-      return make(std::to_string(v->as_int()));
-    } else if (v->is_float()){
-      std::stringstream ss;
-      ss << std::fixed << std::setprecision(2) << v->as_float();
-      return make(ss.str());
-    }
-    return make_null();
+  return make(args[0]->to_string());
 }
 
 auto longitud(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
@@ -95,68 +127,50 @@ auto std_abs(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
     return make(std::abs(v->as_float()));
   else if(v->is_int())
     return make(static_cast<int64_t>(std::llabs(v->as_int())));
-  return make_null();
+  throw RuntimeError(std::format("abs espera un numeros, valor: {}", v->to_string()));
 }
-auto std_max ( ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+
+auto std_max(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto a = args[0];
   auto b = args[1];
 
-  if (a->is_float() || b->is_float()) {
-    double x = a->as_float();
-    double y = b->as_float();
+  if (any_float(a, b)) {
+    double x = to_double(a);
+    double y = to_double(b);
     return std::make_shared<Value>(std::max(x, y));
   }
   return std::make_shared<Value>(std::max(a->as_int(), b->as_int()));
 }
 
 auto std_min(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  if (!args[0] && !args[1])
-    return make_null();
   auto a = args[0];
   auto b = args[1];
 
-  if (a->is_float() || b->is_float()) {
-    double x = a->as_float();
-    double y = b->as_float();
-    return make(std::min(x, y));
-  }
+  if (any_float(a, b))
+    return make(std::min(to_double(a), to_double(b)));
   return make(std::min(a->as_int(), b->as_int()));
 }
 
 auto std_pow(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  double base = args[0]->as_float();
-  double exp = args[1]->as_float();
-
+  double base = to_double(args[0]);
+  double exp = to_double(args[1]);
   return make(std::pow(base, exp));
 }
 
 auto std_sqrt(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  if (!args[0]->is_float())
-    return make_null();
-  double x = args[0]->as_float();
-  return make(std::sqrt(x));
+  return make(std::sqrt(to_double(args[0])));
 }
 
 auto std_floor(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  if (!args[0]->is_float())
-    return make_null();
-  double x = args[0]->as_float();
-  return make(std::floor(x));
+  return make(std::floor(to_double(args[0])));
 }
 
 auto std_ceil(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  if (!args[0]->is_float())
-    return make_null();
-
-  double x = args[0]->as_float();
-  return make(std::ceil(x));
+  return make(std::ceil(to_double(args[0])));
 }
 
 auto std_round(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  if (!args[0]->is_float())
-    return make_null();
-  double x = args[0]->as_float();
-  return make(std::round(x));
+  return make(std::round(to_double(args[0])));
 }
 
 auto std_exit(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
@@ -165,9 +179,7 @@ auto std_exit(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
 
 auto array_insertar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto& arr = self->as_array();
-
   arr.push_back(args[0]);
-
   return make_null();
 }
 
@@ -198,13 +210,6 @@ auto array_contiene(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(false);
 }
 
-auto find_builtin(std::span<const NativeMethodDesc> methods, std::string_view name) -> const NativeMethodDesc* {
-  for (const auto& method : methods) {
-    if (method.name == name)
-      return &method;
-  }
-  return nullptr;
-}
 
 auto array_insertar_en(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto& arr = self->as_array();
@@ -243,19 +248,15 @@ auto array_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> Val
     if (arr[i]->to_string() == target->to_string())
       return make(static_cast<int64_t>(i));
   }
-  return make(false);
+  return make_null();
 }
 
 auto string_separar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-
   auto& str = self->as_string();
-
   auto delim = args[0]->to_string();
 
   std::stringstream ss(str);
-
   std::string item;
-
   std::vector<ValuePtr> out;
 
   while (std::getline(ss, item, delim[0]))
