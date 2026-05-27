@@ -3,6 +3,7 @@
 #include "runtime_values.h"
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <print>
 #include <sstream>
@@ -46,19 +47,6 @@ auto any_float(const V&... v) -> bool {
 }*/
 }
 
-auto std_is_int(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  return make(args[0]->is_int());
-}
-auto std_is_float(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  return make(args[0]->is_float());
-}
-auto std_is_str(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  return make(args[0]->is_string());
-}
-auto std_is_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  return make(args[0]->is_bool());
-}
-
 auto find_builtin(std::span<const NativeMethodDesc> methods, std::string_view name) -> const NativeMethodDesc* {
   for (const auto& method : methods) {
     if (method.name == name)
@@ -66,7 +54,21 @@ auto find_builtin(std::span<const NativeMethodDesc> methods, std::string_view na
   }
   return nullptr;
 }
-auto escribe(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+
+auto std_is_int(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_int());
+}
+auto std_is_float(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_float());
+}
+auto std_is_str(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_string());
+}
+auto std_is_bool(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_bool());
+}
+
+auto escribe(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   for (auto i{0uz}; i < args.size(); i++) {
     std::print("{}", args[i]->to_string());
     if (i + 1 < args.size())
@@ -76,13 +78,13 @@ auto escribe(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make_null();
 }
 
-auto leer(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto leer(ValuePtr, std::span<const ValuePtr>) -> ValuePtr {
   std::string str;
   std::getline(std::cin, str);
   return std::make_shared<Value>(str);
 }
 
-auto aleatorio(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto aleatorio(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   if (!is_number(args[0]) || !is_number(args[1]))
     throw RuntimeError("aleatorio solo acepta numeros");
 
@@ -104,7 +106,7 @@ auto aleatorio(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(dist(gen));
 }
 
-auto entero(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto entero(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto x = args[0];
   if (x->is_array())
     throw RuntimeError("No se puede convertir un array a numero");
@@ -114,8 +116,8 @@ auto entero(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   } 
   return make(to_int(x));
 }
-// Work like in python
-auto std_to_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+
+auto std_to_bool(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto x = args[0];
   if(x->is_int())
     return make(x->as_int() != 0);
@@ -130,7 +132,7 @@ auto std_to_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(false);
 }
 
-auto decimal(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto decimal(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto x = args[0];
   if (x->is_array())
     throw RuntimeError("No se puede convertir un array a numero");
@@ -141,17 +143,17 @@ auto decimal(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(to_double(x));
 }
 
-auto cadena(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto cadena(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   return make(args[0]->to_string());
 }
 
-auto longitud(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto longitud(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   if (!args[0]->is_array())
     throw RuntimeError(std::format("'{}' no soporta longitud", args[0]->to_string()));
   return make(static_cast<int64_t>(args[0]->as_array().size()));
 }
 
-auto std_abs(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_abs(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto v = args[0];
 
   if (v->is_float())
@@ -161,7 +163,7 @@ auto std_abs(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   throw RuntimeError(std::format("abs espera un numeros, valor: {}", v->to_string()));
 }
 
-auto std_max(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_max(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto a = args[0];
   auto b = args[1];
 
@@ -173,7 +175,7 @@ auto std_max(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return std::make_shared<Value>(std::max(a->as_int(), b->as_int()));
 }
 
-auto std_min(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_min(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   auto a = args[0];
   auto b = args[1];
 
@@ -182,31 +184,29 @@ auto std_min(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(std::min(a->as_int(), b->as_int()));
 }
 
-auto std_pow(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_pow(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   double base = to_double(args[0]);
   double exp = to_double(args[1]);
   return make(std::pow(base, exp));
 }
 
-auto std_sqrt(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_sqrt(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   return make(std::sqrt(to_double(args[0])));
 }
 
-auto std_floor(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_floor(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   return make(std::floor(to_double(args[0])));
 }
 
-auto std_ceil(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_ceil(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   return make(std::ceil(to_double(args[0])));
 }
 
-auto std_round(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_round(ValuePtr, std::span<const ValuePtr> args) -> ValuePtr {
   return make(std::round(to_double(args[0])));
 }
 
-auto std_exit(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
-  exit(0);
-}
+auto std_exit(ValuePtr, std::span<const ValuePtr>) -> ValuePtr { exit(0); }
 
 auto array_insertar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto& arr = self->as_array();
@@ -297,13 +297,13 @@ auto string_separar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   return make(out);
 }
 
-auto std_lower(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_lower(ValuePtr self, std::span<const ValuePtr>) -> ValuePtr {
   auto str = self->as_string();
   std::transform(str.begin(), str.end(), str.begin(), ::tolower);
   return make(str);
 }
 
-auto std_upper(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+auto std_upper(ValuePtr self, std::span<const ValuePtr>) -> ValuePtr {
   auto str = self->as_string();
   std::transform(str.begin(), str.end(), str.begin(), ::toupper);
   return make(str);
@@ -312,11 +312,10 @@ auto std_upper(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
 auto str_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto str = self->as_string();
 
-  int64_t r = str.find(args[0]->to_string());
+  std::size_t r = str.find(args[0]->to_string());
 
   if (std::string::npos == r)
     return make_null();
-
-  return make(r);
+  return make(static_cast<int64_t>(r));
 }
 

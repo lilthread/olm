@@ -4,11 +4,11 @@
 
 class Lexer final {
 public:
-  [[nodiscard]] explicit Lexer(std::string_view const source);
+  [[nodiscard]] explicit Lexer(std::string_view source);
   [[nodiscard]] auto next()         -> Token;
   [[nodiscard]] auto at_end() const -> bool;
 private:
-  std::string_view _source;
+  std::string _source;
   SourceLocation _loc{};
   std::size_t _idx{0uz};
 

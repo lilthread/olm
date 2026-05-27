@@ -4,7 +4,7 @@
 Personal interpreter in C++ for my programming language.
 
 ```
--- projects/recursion
+-- Go to projects/ to see more
 func fib(n)
   si n < 2 haz
     devolver n
@@ -13,4 +13,14 @@ func fib(n)
 fin
 
 escribe("El resultado es:", fib(10))
+```
+
+## Installation
+
+```bash
+git clone https://github.com/lilthread/olm.git
+cd olm
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
 ```

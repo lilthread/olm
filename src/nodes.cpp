@@ -2,6 +2,8 @@
 #include <print>
 #include <variant>
 
+// UNUSED:
+
 auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
   if (!node) {
     std::println("{}NULO", std::string(indent, ' '));
@@ -131,12 +133,9 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
 
     case NodeType::RETURNSTATEMENT: {
       auto* x = static_cast<const ReturnStatement*>(node);
-      std::print("{}RET: ", pad);
-
+      std::print("{}DEVOLVER: ", pad);
       if (x->expr) {
-        std::println("{{", pad);
         debug_see_nodetype(x->expr.get(), indent + 2);
-        std::println("{}}}", pad);
       }
 
       break;
@@ -144,12 +143,12 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
 
     case NodeType::FUNCTIONCALL: {
       auto* x = static_cast<const FunctionCall*>(node);
-      std::println("{}CALL: {}() {{", pad, x->id);
+      std::println("{}CALL: {}(", pad, x->id);
 
       for (const auto& arg : x->exprs)
         debug_see_nodetype(arg.get(), indent + 2);
 
-      std::println("{}}}", pad);
+      std::println("{})", pad);
       break;
     }
 
@@ -163,7 +162,6 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
       std::println("{}}}", pad);
       break;
     }
-
     case NodeType::CLASSDECL: {
       auto* x = static_cast<const ClassDecl*>(node);
       std::println("{}CLASE {} {{", pad, x->id);
@@ -174,7 +172,20 @@ auto debug_see_nodetype(const IAST* node, int indent) noexcept -> void {
       std::println("{}}}", pad);
       break;
     }
+    case NodeType::METHODCALL:{
+      auto* x = static_cast<const MethodCall*>(node);
+      std::println("{}CALL: {}(", pad, x->name);
 
+      for (const auto& arg : x->args)
+      debug_see_nodetype(arg.get(), indent + 2);
+
+      std::println("{})", pad);
+      break;
+    }
+    case NodeType::CONTINUESTMT:{
+       std::println("{}CONTINUAR", pad);
+      break; 
+    }
     default:
       std::println("{}ILEGAL", pad);
       break;

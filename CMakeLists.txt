@@ -7,13 +7,13 @@ project(
 )
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 add_executable(olm src/main.cpp)
 add_library(headerfiles STATIC)
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-
-add_compile_options(-Wall -Wextra -Werror -O3 )
 
 target_include_directories(headerfiles PUBLIC src)
+
 target_sources(headerfiles
   PRIVATE
     src/utilities.cpp
@@ -44,6 +44,12 @@ target_sources(headerfiles
     src/repl.h
 )
 
+target_compile_options(headerfiles PRIVATE $<$<CONFIG:Release>:-O3> $<$<CONFIG:Debug>:-g>)
+target_compile_options(headerfiles PRIVATE -Wall -Wextra -Werror)
+
+target_compile_options(olm PRIVATE $<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>)
+target_link_options(olm PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+
 
 if(NOT WIN32)
   find_library(READLINE_LIB NAMES edit readline)
@@ -52,9 +58,6 @@ else()
   target_link_libraries(olm PRIVATE headerfiles)
 endif()
 
-
-target_compile_options(olm PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
-target_link_options(olm PRIVATE -fsanitize=address)
 
 # GTEST
 include(FetchContent)

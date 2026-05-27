@@ -28,7 +28,7 @@ const std::flat_map<std::string_view, TokenType> keywords {
   {"y",         TokenType::AND},
   {"continuar", TokenType::CONTINUE},
 };
-Lexer::Lexer(std::string_view const source) {
+Lexer::Lexer(std::string_view source) {
   _source = source;
   _loc.col = 1;
   _loc.row = 0;

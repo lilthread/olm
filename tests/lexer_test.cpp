@@ -3,7 +3,6 @@
 #include <stdexcept>
 #include "lexer.h"
 #include "tokens.h"
-#include "utilities.h"
 
 TEST(LexerTest, TokenizeBools) {
   Lexer lx("verdadero falso continuar");

@@ -511,12 +511,12 @@ auto Interpreter::eval_index_expr(const IndexExpr* node) -> ValuePtr {
 
   if (obj->is_array()) {
     auto& arr = obj->as_array();
-    if (i < 0 || i >= arr.size())
+    if (i < 0 || i >= static_cast<int>(arr.size()))
       throw RuntimeError("indice fuera de rango");
     return arr[i];
   }else if (obj->is_string()) {
     const auto& s = obj->as_string();
-    if (i < 0 || i >= (int)s.size())
+    if (i < 0 || i >= static_cast<int>(s.size()))
       throw RuntimeError("indice fuera de rango");
     return make(std::string(1, s[i]));
   }
