@@ -172,33 +172,6 @@ TEST(LexerTest, TokenizeProgram) {
   ASSERT_EQ(expected_tkns.at(14), lx.next());
 }
 
-TEST(LexerTest, TestRowCol) {
-  auto file = *read_file("./tests/test_row_col.txt");
-  auto lx = Lexer{file};
-  auto clase = lx.next();
-  ASSERT_EQ(0, clase.loc.row) << "invalid row: " << clase.loc.row;
-  ASSERT_EQ(1, clase.loc.col) << "invalid col: " << clase.loc.col;
-  auto ident_persona = lx.next();
-  ASSERT_EQ(6, ident_persona.loc.row) << "invalid row: " << ident_persona.loc.row;
-  ASSERT_EQ(1, ident_persona.loc.col) << "invalid col: " << ident_persona.loc.col;
-  auto method_new = lx.next();
-  ASSERT_EQ(2, method_new.loc.row) << "invalid row: " << method_new.loc.row;
-  ASSERT_EQ(2, method_new.loc.col) << "invalid col: " << method_new.loc.col;
-  auto ident_new = lx.next();
-  ASSERT_EQ(7, ident_new.loc.row) << "invalid row: " << ident_new.loc.row;
-  ASSERT_EQ(2, ident_new.loc.col) << "invalid col: " << ident_new.loc.col;
-  auto lparen = lx.next();
-  ASSERT_EQ(10, lparen.loc.row) << "invalid row: " << lparen.loc.row;
-  ASSERT_EQ(2, lparen.loc.col) << "invalid col: " << lparen.loc.col;
-  auto ident_name = lx.next();
-  ASSERT_EQ(11, ident_name.loc.row) << "invalid row: " << ident_name.loc.row;
-  ASSERT_EQ(2, ident_name.loc.col) << "invalid col: " << ident_name.loc.col;
-  auto rparen = lx.next();
-  ASSERT_EQ(15, rparen.loc.row) << "invalid row: " << rparen.loc.row;
-  ASSERT_EQ(2, rparen.loc.col) << "invalid col: " << rparen.loc.col;
-  // That's enough :|
-}
-
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

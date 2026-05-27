@@ -51,7 +51,7 @@ auto Sema::analyze(const StmtsPtr& program) -> void {
   _func_depth = 0;
   _in_class   = false;
 
-  push_scope(); // global scope
+  push_scope();
 
   for (const auto& b : FREE_FUNCTIONS) {
     _scopes.back().define({
@@ -179,9 +179,9 @@ auto Sema::check_class_decl(const ClassDecl* node) -> void {
 }
 auto Sema::check_assignment(const Assignment* node) -> void {
   auto loc = node->loc;
-
-  if (auto lit = dynamic_cast<const Literal*>(node->target.get())) {
-
+  auto tkn = node->target->node_type;
+  if (tkn == NodeType::LITERAL) {
+    auto lit = static_cast<const Literal*>(node->target.get());
     if (lit->token.type != TokenType::IDENTIFIER) {
       error(SemanticErrorCode::INVALID_ASSIGN_TARGET, loc);
       return;
@@ -208,7 +208,8 @@ auto Sema::check_assignment(const Assignment* node) -> void {
     check_expr(node->expr.get());
     return;
   }
-  if (auto idx = dynamic_cast<const IndexExpr*>(node->target.get())) {
+  else if (NodeType::INDEXEXPR == tkn) {
+    auto idx = static_cast<const IndexExpr*>(node->target.get());
     check_expr(idx->object.get());
     check_expr(idx->index.get());
     check_expr(node->expr.get());
@@ -342,4 +343,28 @@ auto Sema::check_literal(const Literal* node) -> void {
       break;
     default: break;
   }
+}
+
+auto Sema::init_repl() -> void {
+  _errors.clear();
+  _scopes.clear();
+  _loop_depth = 0;
+  _func_depth = 0;
+  _in_class   = false;
+  push_scope();
+
+  for (const auto& b : FREE_FUNCTIONS) {
+    _scopes.back().define({
+      .name     = b.name.data(),
+      .kind     = SymbolKind::FUNCTION,
+      .arity    = b.arity,
+      .defined  = true,
+    });
+  }
+}
+
+auto Sema::analyze_incremental(const StmtsPtr& stmts) -> void {
+  _errors.clear();
+  check_stmts(stmts);
+  _errors.flush();
 }

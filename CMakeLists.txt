@@ -25,6 +25,7 @@ target_sources(headerfiles
     src/std.cpp
     src/sema.cpp
     src/interpreter.cpp
+    src/repl.cpp
   PUBLIC
   FILE_SET HEADERS
   BASE_DIRS src
@@ -40,13 +41,17 @@ target_sources(headerfiles
     src/builtins.h
     src/sema.h
     src/interpreter.h
+    src/repl.h
 )
 
 
-target_link_libraries(olm
-  PRIVATE
-    headerfiles
-)
+if(NOT WIN32)
+  find_library(READLINE_LIB NAMES edit readline)
+  target_link_libraries(olm PRIVATE headerfiles ${READLINE_LIB})
+else()
+  target_link_libraries(olm PRIVATE headerfiles)
+endif()
+
 
 target_compile_options(olm PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
 target_link_options(olm PRIVATE -fsanitize=address)

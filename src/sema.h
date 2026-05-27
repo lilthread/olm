@@ -32,7 +32,11 @@ private:
 
 class Sema final {
 public:
+
   auto analyze(const StmtsPtr& program) -> void;
+
+  auto init_repl() -> void;
+  auto analyze_incremental(const StmtsPtr& stmts) -> void;
 
 private:
   std::vector<Scope>         _scopes{};

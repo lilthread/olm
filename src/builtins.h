@@ -7,8 +7,13 @@ static constexpr NativeMethodDesc FREE_FUNCTIONS[] {
   { "leer", 0, false, leer},
   { "aleatorio", 2, false, aleatorio},
   { "entero", 1, false, entero},
+  { "es_entero", 1, false, std_is_int},
   { "decimal", 1, false, decimal},
+  { "es_decimal", 1, false, std_is_float},
   { "cadena", 1, false, cadena},
+  { "es_cadena", 1, false, std_is_str},
+  { "bool", 1, false, std_to_bool},
+  { "es_bool", 1, false, std_is_bool},
   { "salir", 0, false, std_exit},
   { "longitud", 1, false, longitud},
   // MATH
@@ -36,10 +41,13 @@ static constexpr NativeMethodDesc ARRAY_METHODS[] {
   { "insertar_en", 2, false, array_insertar_en },
   { "eliminar", 1, false, array_eliminar },
   { "contiene", 1, false, array_contiene },
-  { "encuentra_index", 1, false, array_encuentra_index }
+  { "encuentra", 1, false, array_encuentra_index }
 };
 
 static constexpr NativeMethodDesc STRING_METHODS[] {
-  { "separar", 1, false, string_separar }
+  { "separar", 1, false, string_separar },
+  { "en_minuscula", 0, false, std_lower},
+  { "en_mayuscula", 0, false, std_upper},
+  { "encuentra", 1, false, str_encuentra_index}
 };
 

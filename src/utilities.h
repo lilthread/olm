@@ -1,27 +1,21 @@
 #pragma once
 #include <string_view>
 #include <optional>
-#include <sys/stat.h>
-#include <fstream>
-#include <sstream>
 
 struct SourceLocation final {
   std::size_t row {};
   std::size_t col {};
 
-  auto to_string() const -> std::string { return std::format("{}:{}", row, col); }
+  auto to_string() const -> std::string;
   auto operator<=>(const SourceLocation&) const = default;
   auto is_invalid_position() const -> bool { return col == 0; }
 };
 
-static inline auto read_file(std::string_view filename) -> std::optional<std::string> {
-  std::ifstream file{filename.data()};
-  if (!file.is_open())
-    return std::nullopt;
-  std::stringstream buffer;
-  buffer << file.rdbuf();
-  return buffer.str();
-}
+[[noreturn]] auto help_panel() -> void;
+
+auto read_file(std::string_view filename) -> std::optional<std::string>;
 
 template<std::size_t N, class T>
 constexpr std::size_t countof(T(&)[N]) { return N; }
+
+
