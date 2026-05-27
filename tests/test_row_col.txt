@@ -1,7 +1,0 @@
-clase Persona
-  func new(name)
-    este._name se name
-    ret este 
-  fin
-  var _name se ""
-fin
