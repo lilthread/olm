@@ -582,14 +582,6 @@ TEST(Interp, HigherOrderViaWrapper) {
   );
   EXPECT_INT(v, 20);
 }
-TEST(Interp, StringMethods) {
-  auto v = get_result(
-    "var str se 'key|value'"
-    "var array se str.separar('|')"
-    "func resultado() devolver array fin"
-  );
-  EXPECT_ARRAY(v, "[key, value]");
-}
 
 TEST(Interp, StringToInt) {
   auto v = get_result(
@@ -676,7 +668,7 @@ TEST(Array, InsertarEn) {
     "var id se 'target'"
     "var x se [0, 0, 3]"
     "x.insertar_en(1, id)"
-    "func resultado() devolver x.encuentra_index(id) fin"
+    "func resultado() devolver x.encuentra(id) fin"
   );
   EXPECT_INT(v, 1);
 }
@@ -726,3 +718,49 @@ TEST(Continuar, InsideFuncLoop) {
   // 2+4+6 = 12
   EXPECT_INT(v, 12);
 }
+
+
+TEST(StrMethod, separar) {
+  auto v = get_result(
+    "var str se 'key|value'"
+    "var array se str.separar('|')"
+    "func resultado() devolver array fin"
+  );
+  EXPECT_ARRAY(v, "[key, value]");
+}
+
+TEST(StrMethod, SplitStrLiteral) {
+  auto v = get_result(
+    "func resultado() devolver 'hello world'.separar(' ') fin"
+  );
+  EXPECT_ARRAY(v, "[hello, world]");
+}
+
+TEST(StrMethod, ToUpper) {
+  auto v = get_result(
+    "func resultado() devolver 'hello world'.en_mayuscula() fin"
+  );
+  EXPECT_STR(v, "HELLO WORLD");
+}
+
+TEST(StrMethod, ToLower) {
+  auto v = get_result(
+    "func resultado() devolver 'HELLO WORLD'.en_minuscula() fin"
+  );
+  EXPECT_STR(v, "hello world");
+}
+
+TEST(StrMethod, Find) {
+  auto v = get_result(
+    "func resultado() devolver 'HELLO WORLD'.encuentra('E') fin"
+  );
+  EXPECT_INT(v, 1);
+}
+
+TEST(StrMethod, NotFound) {
+  auto v = get_result(
+    "func resultado() devolver 'HELLO WORLD'.encuentra('z') fin"
+  );
+  EXPECT_NULL(v);
+}
+

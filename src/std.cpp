@@ -1,8 +1,11 @@
 #include "std.h"
 #include "error_manager.h"
 #include "runtime_values.h"
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <print>
+#include <sstream>
 #include <string>
 #include <iostream>
 #include <random>
@@ -41,6 +44,19 @@ auto any_float(const V&... v) -> bool {
     return v->is_float();
   });
 }*/
+}
+
+auto std_is_int(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_int());
+}
+auto std_is_float(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_float());
+}
+auto std_is_str(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_string());
+}
+auto std_is_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  return make(args[0]->is_bool());
 }
 
 auto find_builtin(std::span<const NativeMethodDesc> methods, std::string_view name) -> const NativeMethodDesc* {
@@ -97,6 +113,21 @@ auto entero(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
     return make(static_cast<int64_t>(std::stoi(str)));
   } 
   return make(to_int(x));
+}
+// Work like in python
+auto std_to_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  auto x = args[0];
+  if(x->is_int())
+    return make(x->as_int() != 0);
+  else if(x->is_null())
+    return make(false);
+  else if(x->is_string())
+    return make(!x->to_string().empty());
+  else if(x->is_float())
+    return make(x->as_float() != 0);
+  else if(x->is_array())
+    return make(!x->as_array().empty());
+  return make(false);
 }
 
 auto decimal(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
@@ -250,6 +281,7 @@ auto array_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> Val
   }
   return make_null();
 }
+// STRING
 
 auto string_separar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
   auto& str = self->as_string();
@@ -263,5 +295,28 @@ auto string_separar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
     out.push_back(make(item));
 
   return make(out);
+}
+
+auto std_lower(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  auto str = self->as_string();
+  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+  return make(str);
+}
+
+auto std_upper(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  auto str = self->as_string();
+  std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+  return make(str);
+}
+
+auto str_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr {
+  auto str = self->as_string();
+
+  int64_t r = str.find(args[0]->to_string());
+
+  if (std::string::npos == r)
+    return make_null();
+
+  return make(r);
 }
 

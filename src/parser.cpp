@@ -4,7 +4,7 @@
 #include <format>
 #include <stdexcept>
 #include <string>
-// TODO IMPL CONTINUE
+
 
 auto Parser::at_end() const -> bool {
   return _current.type == TokenType::END_OF_FILE;

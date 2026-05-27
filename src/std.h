@@ -24,6 +24,7 @@ auto aleatorio(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto entero(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto decimal(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto cadena(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_to_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto longitud(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto std_abs(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto std_max (ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
@@ -34,6 +35,10 @@ auto std_floor(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto std_ceil(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto std_round(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 auto std_exit(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_is_int(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_is_float(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_is_str(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_is_bool(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
 
 // ARRAY
 auto array_insertar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
@@ -45,4 +50,7 @@ auto array_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> Val
 // STRING
 
 auto string_separar(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
-
+auto std_lower(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_upper(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto str_encuentra_index(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;
+auto std_is_digit(ValuePtr self, std::span<const ValuePtr> args) -> ValuePtr;

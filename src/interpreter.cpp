@@ -549,14 +549,12 @@ auto Interpreter::eval_method_call(const MethodCall* node) -> ValuePtr {
   if (obj->is_array()) {
     return dispatch_native_method(
       ARRAY_METHODS,
-      obj,
-      node
+      obj, node
     );
   } else if (obj->is_string()) {
     return dispatch_native_method(
       STRING_METHODS,
-      obj,
-      node
+      obj, node
     );
   }
 
