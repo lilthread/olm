@@ -10,49 +10,69 @@
 #include "utilities.h"
 #include "repl.h"
 
-//static bool show_ast {};
+constexpr char const* HELP_PANEL = R"#(
+--------------------------
+Uso: ./olm
+Uso: ./olm -h
+Uso: ./olm --ayuda
+Uso: ./olm <archivo>
+Uso: ./olm --ast <archivo>
+--------------------------)#";
 
 auto main(int argc, char** argv) -> int32_t {
-  if (argc == 1){
-    Repl repl;
+  if (argc == 1) {
+    Repl repl{};
     repl.run();
     return EXIT_SUCCESS;
-  } 
-  std::string_view s = argv[1];
-  if (s == "--ayuda" || s == "-h")
-    help_panel();
+  }
 
-  auto opt = read_file(std::move(argv[1]));
+  bool show_ast {};
+  std::string_view filename{};
+
+  for (auto i{1}; i < argc; i++) {
+    std::string_view s = argv[i];
+    if (s == "--ayuda" || s == "-h") {
+      std::print("{}", HELP_PANEL);
+      exit(EXIT_SUCCESS);
+    } else if (s == "--ast") {
+      show_ast = true;
+    } else {
+      filename = s;
+      break;
+    }
+  }
+
+  auto opt = read_file(filename);
 
   if (!opt.has_value()) {
-    std::println(stderr, "Error: no se pudo abrir el archivo '{}'", argv[1]);
+    std::println(stderr, "Error: no se pudo abrir el archivo '{}'", filename);
     return EXIT_FAILURE;
   }
 
-  StmtsPtr ast{};
+  StmtsPtr ast_buffer{};
   try {
-    Parser parser{opt.value()};
-    ast = parser.parse();
+    Parser parser{*opt};
+    ast_buffer = parser.parse();
   } catch (const std::runtime_error& e) {
     std::println(stderr, "{}", e.what());
     return EXIT_FAILURE;
   }
 
- /* if (show_ast) [[unlikely]] {
-    debug_see_nodetype(ast);
+  if (show_ast) [[unlikely]] {
+    debug_see_nodetype(ast_buffer);
     return EXIT_SUCCESS;
-  }*/
+  }
 
   try {
     Sema sema{};
-    sema.analyze(ast);
+    sema.analyze(ast_buffer);
   } catch(const SemanticException& e) {
     std::println(stderr, "{}", e.what());
     return EXIT_FAILURE;
   }
   try {
     Interpreter interp;
-    interp.run(ast);
+    interp.run(ast_buffer);
   } catch (const RuntimeError& e) {
     std::println(stderr, "{}", e.what());
     return EXIT_FAILURE;

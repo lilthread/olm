@@ -11,7 +11,6 @@ struct SourceLocation final {
   auto is_invalid_position() const -> bool { return col == 0; }
 };
 
-[[noreturn]] auto help_panel() -> void;
 
 auto read_file(std::string_view filename) -> std::optional<std::string>;
 
